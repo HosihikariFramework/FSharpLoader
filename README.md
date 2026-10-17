@@ -3,14 +3,15 @@
 [English](README.md) | [简体中文](README.zh_hans.md)
 
 The **F# plugin Provider** of the Hosihikari framework. F# has no VM of its own — it runs on the
-CLR — so this provider does something different from the JavaScript one: it **compiles at load
-time**. A `.fsx` becomes a real assembly, which then goes into its own collectible ALC.
+CLR — so this provider **compiles at load time**: a `.fsx` becomes a real assembly, which then goes
+into its own collectible ALC.
 
 That buys F# plugins the same promises as any assembly plugin: per-plugin dependency isolation, and
 an unload that is verified rather than assumed.
 
-**One VM, one repository** — F# keeps its own because its "VM" is the CLR, reached through a
-compiler.
+**In-process .NET.** The framework keeps the assembly provider, the C# provider and this F# provider
+in-process; JavaScript, Python and Lua go through the generic out-of-process provider
+(`Hosihikari.PluginProvider.Rpc`, ADR-0031).
 
 ## What a plugin package looks like
 
@@ -55,7 +56,7 @@ type HelloPlugin() =
 ```
 
 Because the result is a real assembly referencing the contract, an F# plugin reaches everything a C#
-plugin does — including the type-keyed channels (event bus, service registry) that a JavaScript
+plugin does — including the type-keyed channels (event bus, service registry) that an out-of-process
 script cannot.
 
 ## How it compiles
@@ -81,16 +82,18 @@ could forge the cache as well. ADR-0029 records that boundary.
 dotnet run --project host/Hosihikari.PluginProvider.FSharp.Host.csproj -c Release
 ```
 
-The harness drives this Provider through the core's real `PluginManagerHost`, so a sibling
-`Hosihikari.PluginManager` checkout is required. It proves six things: the Provider is registered by
-a plugin package, the compilation lands in the data directory, the script runs at load and reads the
-operator's override, enable hooks reach the plugin, disable and unload hooks arrive, and the unload
-verifies — the ALC is actually collected.
+The harness drives this Provider through the core's real `PluginManagerHost`, so sibling
+`Hosihikari.PluginManager` and `Hosihikari.Abstractions` checkouts are required. It proves ten
+things: the Provider is registered by a plugin package, the artifact lands in a content-addressed
+directory with its checksum and PDB, the script runs at load and reads the operator's override,
+enable hooks reach it, a channel message from the host reaches it, a package-local third-party
+dependency is usable, disable and unload hooks arrive, the unload verifies (the ALC is actually
+collected), a second load hits the cache, and a tampered artifact is detected and recompiled.
 
 ## How it reaches the host process
 
-As a plugin package, named `hosihikari-fsharp` — the same way as the JavaScript provider. Script
-packages declare the dependency, and the dependency graph orders the provider first:
+As a plugin package, named `hosihikari-fsharp` — the same way as the C# provider. Script packages
+declare the dependency, and the dependency graph orders the provider first:
 
 ```json
 "dependencies": [
