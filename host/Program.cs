@@ -49,6 +49,9 @@ Console.WriteLine("=== 加载（含一次 F# 编译） ===");
 host.LoadAll();
 Console.WriteLine($"已加载：{string.Join(", ", host.LoadedNames)}");
 
+// 程序集这一侧发一条通道消息 —— 与 F# 脚本用的是同一个载荷类型（ADR-0026）。
+host.Events.Publish(new Hosihikari.ChannelMessage("ping", "\"from-host\""));
+
 var dataDirectory = Path.Combine(dataRoot, "Hello");
 var checks = new List<(string Name, bool Passed, string Detail)>();
 
@@ -67,6 +70,9 @@ var body = Read("body.txt");
 checks.Add(("脚本装载时执行，且读到包外覆盖的配置", body == "body:overridden", body));
 
 checks.Add(("启用钩子到达脚本", Read("enabled.txt") == "enabled", Read("enabled.txt")));
+
+// 编出来的 F# 插件拿得到完整契约 —— 包括按类型做键的通道（ADR-0026）。
+checks.Add(("程序集发的通道消息被 F# 插件收到", Read("ping.txt") == "ping:\"from-host\"", Read("ping.txt")));
 
 var unloaded = host.Unload("Hello");
 checks.Add(("卸载时停用与卸载钩子都到达",
@@ -159,6 +165,11 @@ void StageScriptPackage()
                     dataDirectory <- context.DataDirectory
                     let greeting = context.Configuration.["greeting"]
                     File.WriteAllText(Path.Combine(dataDirectory, "body.txt"), "body:" + greeting)
+                    context.Events.Subscribe<ChannelMessage>(fun message ->
+                        if message.Topic = "ping" then
+                            let path = Path.Combine(dataDirectory, "ping.txt")
+                            File.WriteAllText(path, "ping:" + message.Json))
+                    |> ignore
                 member this.OnEnable() =
                     File.WriteAllText(Path.Combine(dataDirectory, "enabled.txt"), "enabled")
                 member this.OnDisable() =
