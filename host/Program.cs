@@ -78,6 +78,10 @@ checks.Add(("启用钩子到达脚本", Read("enabled.txt") == "enabled", Read("
 // 编出来的 F# 插件拿得到完整契约 —— 包括按类型做键的通道（ADR-0026）。
 checks.Add(("程序集发的通道消息被 F# 插件收到", Read("ping.txt") == "ping:\"from-host\"", Read("ping.txt")));
 
+// 包内自带的第三方依赖：编译期看得见、运行期从包里解析。
+var expectedHash = Convert.ToHexStringLower(System.IO.Hashing.XxHash128.Hash(new byte[] { 1, 2, 3 }));
+checks.Add(("包内自带的第三方依赖可用", Read("hash.txt") == expectedHash, Read("hash.txt")));
+
 var unloaded = host.Unload("Hello");
 checks.Add(("卸载时停用与卸载钩子都到达",
     Read("disabled.txt") == "disabled" && Read("unloaded.txt") == "unloaded",
@@ -195,6 +199,11 @@ void StageScriptPackage()
     // 作者给的默认值，随包更新（ADR-0018）。
     File.WriteAllText(Path.Combine(package, "Hello.conf"), "greeting = \"package\"\n");
 
+    // 包里自带的第三方依赖：不是框架的一部分，编译期与运行期都得从包里拿。
+    File.Copy(
+        Path.Combine(RepoRoot(), "src", "bin", ConfigurationName(), "net10.0", "System.IO.Hashing.dll"),
+        Path.Combine(package, "System.IO.Hashing.dll"));
+
     File.WriteAllText(Path.Combine(package, "main.fsx"), """
         open Hosihikari
         open System.IO
@@ -207,6 +216,9 @@ void StageScriptPackage()
                     dataDirectory <- context.DataDirectory
                     let greeting = context.Configuration.["greeting"]
                     File.WriteAllText(Path.Combine(dataDirectory, "body.txt"), "body:" + greeting)
+                    let hash = System.Convert.ToHexStringLower(
+                                   System.IO.Hashing.XxHash128.Hash([| 1uy; 2uy; 3uy |]))
+                    File.WriteAllText(Path.Combine(dataDirectory, "hash.txt"), hash)
                     context.Events.Subscribe<ChannelMessage>(fun message ->
                         if message.Topic = "ping" then
                             let path = Path.Combine(dataDirectory, "ping.txt")

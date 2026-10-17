@@ -53,7 +53,7 @@ public sealed class FSharpPluginProvider : IPluginProvider
 
         // 内容寻址：目录名就把"脚本内容 + 编译器 + 运行时"钉死了。脚本改了就是另一个目录。
         var script = File.ReadAllText(entry);
-        var cacheDirectory = Path.Combine(context.DataDirectory, "bin", CacheKey(script));
+        var cacheDirectory = Path.Combine(context.DataDirectory, "bin", CacheKey(script, packageDirectory));
         var assemblyPath = Path.Combine(cacheDirectory, manifest.Name + ".dll");
 
         if (!IsUsable(assemblyPath))
@@ -97,15 +97,34 @@ public sealed class FSharpPluginProvider : IPluginProvider
         return new CompiledPluginInstance(plugin, loadContext);
     }
 
-    /// <summary>脚本内容 + 编译器版本 + 运行时版本，xxhash128 后取十六进制。</summary>
-    private static string CacheKey(string script)
+    /// <summary>脚本内容 + 包内自带的依赖 + 编译器版本 + 运行时版本，xxhash128 后取十六进制。</summary>
+    private static string CacheKey(string script, string packageDirectory)
     {
         var hasher = new XxHash128();
         hasher.Append(Encoding.UTF8.GetBytes(script));
         hasher.Append(Encoding.UTF8.GetBytes(typeof(FSharpChecker).Assembly.GetName().Version?.ToString() ?? "?"));
         hasher.Append(Encoding.UTF8.GetBytes(Environment.Version.ToString()));
+
+        // 包内自带的依赖也参与寻址 —— 换了 dll 就该重编。
+        foreach (var path in LocalAssemblies(packageDirectory))
+        {
+            hasher.Append(Encoding.UTF8.GetBytes(Path.GetFileName(path)));
+            hasher.Append(XxHash128.Hash(File.ReadAllBytes(path)));
+        }
+
         return Convert.ToHexStringLower(hasher.GetCurrentHash());
     }
+
+    /// <summary>插件目录里自带的依赖；框架已经有的那些不算（共享层，ADR-0004）。</summary>
+    private static IReadOnlyList<string> LocalAssemblies(string packageDirectory) =>
+        Directory.EnumerateFiles(packageDirectory, "*.dll")
+            .Where(path => !IsFrameworkAssembly(Path.GetFileNameWithoutExtension(path)))
+            .OrderBy(path => path, StringComparer.Ordinal)
+            .ToArray();
+
+    private static bool IsFrameworkAssembly(string name) =>
+        FrameworkContext?.Assemblies.Any(loaded => string.Equals(loaded.GetName().Name, name, StringComparison.Ordinal))
+        ?? false;
 
     /// <summary>产物在、且校验和对得上才算能用。</summary>
     private static bool IsUsable(string assemblyPath)
@@ -176,7 +195,9 @@ public sealed class FSharpPluginProvider : IPluginProvider
         // 的参考集（mscorlib / System.Windows.Forms）。这里直接按 SDK 的做法拼：
         // --noframework + 显式的引用清单 —— 运行时、契约，以及这个 Provider 自己的依赖
         // （FSharp.Core 等，它们随包走、不在宿主的 TPA 里）。
-        var references = CollectReferences().Select(path => "-r:" + path);
+        // 引用 = 宿主的运行时 + 框架自己 ALC 里的那些 + **插件包里自带的依赖**。
+        var references = CollectReferences(Path.GetDirectoryName(scriptPath)!)
+            .Select(path => "-r:" + path);
 
         var arguments = new[]
             {
@@ -240,8 +261,9 @@ public sealed class FSharpPluginProvider : IPluginProvider
         }
     }
 
-    /// <summary>宿主的运行时 + 这个 Provider 自己的目录（契约与它的抽象包都在里面）。</summary>
-    private static IEnumerable<string> CollectReferences()
+    /// <summary>宿主的运行时 + 框架自己的 ALC + 插件包里自带的依赖。这个 Provider 自己的目录
+    /// （FSharp.Core 等随包走）也在这里加进来。</summary>
+    private static IEnumerable<string> CollectReferences(string packageDirectory)
     {
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -261,6 +283,14 @@ public sealed class FSharpPluginProvider : IPluginProvider
         }
 
         foreach (var path in Directory.EnumerateFiles(providerDirectory, "*.dll"))
+        {
+            if (seen.Add(Path.GetFileName(path)))
+            {
+                yield return path;
+            }
+        }
+
+        foreach (var path in LocalAssemblies(packageDirectory))
         {
             if (seen.Add(Path.GetFileName(path)))
             {
