@@ -8,7 +8,7 @@
 这让 F# 插件拿到与其他程序集插件一样的承诺：每插件的依赖互相隔离，卸载是真的验证过而不是假定的。
 
 **进程内只留 .NET。** 框架在进程内保留程序集型、C# 与 F# 三个 Provider；JavaScript、Python、Lua 走
-通用的进程外 Provider（`Hosihikari.PluginProvider.Rpc`，ADR-0031）—— 不再一个运行时一个仓。
+通用的进程外 Provider（`Hosihikari.PluginProvider.Rpc`，ADR-0031）。
 
 ## 插件包长什么样
 
