@@ -1,5 +1,7 @@
+using System.IO.Hashing;
 using System.Reflection;
 using System.Runtime.Loader;
+using System.Text;
 
 using FSharp.Compiler.CodeAnalysis;
 using FSharp.Compiler.Text;
@@ -15,17 +17,20 @@ namespace Hosihikari.PluginProvider.FSharp;
 ///
 /// F# 没有自己的虚拟机 —— 它就跑在 CLR 上。所以这个 Provider 做的事是**装载时编译**：
 /// 把清单 <c>entry</c> 指向的 <c>.fsx</c> 编成一个程序集，再交给一个 collectible ALC。
-/// 拿到的是与其他程序集插件一模一样的承诺：每插件的依赖互相隔离、卸载要真的回收。
 ///
-/// 入口靠约定：编出来的程序集里那个实现 <see cref="IPlugin"/>、有无参构造的类型（ADR-0008：
-/// 怎么从包里找到入口是 Provider 自己的事）。
+/// 编译产物按**内容寻址**缓存（ADR-0029）：目录名是脚本内容、编译器与运行时版本的哈希，
+/// 所以脚本一改就换目录，旧代码不可能被跑到；产物旁另存一份校验和，加载前对一遍。
+///
+/// 入口靠约定：编出来的程序集里那个实现 <see cref="IPlugin"/>、有无参构造的类型（ADR-0008）。
 /// </summary>
 public sealed class FSharpPluginProvider : IPluginProvider
 {
     /// <summary>与宿主共享的那一层 —— 必须由父上下文解析，免得出现第二个类型身份。</summary>
     private static readonly string[] SharedAssemblies = ["Hosihikari.Abstractions"];
 
-    // F# 的可选参数在 C# 这边是实打实的 FSharpOption 形参，不给就编不过。
+    /// <summary>产物校验和的落地名：内容寻址管"该不该编"，它管"编出来的还是不是那个"。</summary>
+    private const string ChecksumSuffix = ".xxh128";
+
     private readonly FSharpChecker _checker = FSharpChecker.Create(
         null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
@@ -42,20 +47,29 @@ public sealed class FSharpPluginProvider : IPluginProvider
             return null;
         }
 
-        // 编到数据目录下：包本身在升级时会被整个替换，派生产物不该住在那儿。
-        var outputDirectory = Path.Combine(context.DataDirectory, "bin");
-        Directory.CreateDirectory(outputDirectory);
-        var assemblyPath = Path.Combine(outputDirectory, manifest.Name + ".dll");
+        // 内容寻址：目录名就把"脚本内容 + 编译器 + 运行时"钉死了。脚本改了就是另一个目录。
+        var script = File.ReadAllText(entry);
+        var cacheDirectory = Path.Combine(context.DataDirectory, "bin", CacheKey(script));
+        var assemblyPath = Path.Combine(cacheDirectory, manifest.Name + ".dll");
 
-        if (!Compile(entry, assemblyPath, context))
+        if (!IsUsable(assemblyPath))
         {
-            return null;
+            // 没有、或校验和对不上 —— 都丢弃重编，绝不"验不过也照跑"。
+            if (Directory.Exists(cacheDirectory))
+            {
+                Directory.Delete(cacheDirectory, recursive: true);
+            }
+
+            if (!Compile(entry, cacheDirectory, manifest.Name, context))
+            {
+                return null;
+            }
         }
 
         // F# 插件的依赖从它自己的目录解析；契约、框架与运行时由父上下文给。
-        CopyNeighbour(typeof(Microsoft.FSharp.Core.Unit).Assembly.Location, outputDirectory);
+        CopyNeighbour(typeof(Microsoft.FSharp.Core.Unit).Assembly.Location, cacheDirectory);
 
-        var loadContext = new ScriptLoadContext(assemblyPath, outputDirectory);
+        var loadContext = new ScriptLoadContext(assemblyPath, cacheDirectory);
         var assembly = loadContext.LoadFromAssemblyPath(assemblyPath);
 
         var entryType = assembly.GetTypes().FirstOrDefault(candidate =>
@@ -79,46 +93,138 @@ public sealed class FSharpPluginProvider : IPluginProvider
         return new CompiledPluginInstance(plugin, loadContext);
     }
 
-    private bool Compile(string scriptPath, string assemblyPath, IPluginContext context)
+    /// <summary>脚本内容 + 编译器版本 + 运行时版本，xxhash128 后取十六进制。</summary>
+    private static string CacheKey(string script)
     {
+        var hasher = new XxHash128();
+        hasher.Append(Encoding.UTF8.GetBytes(script));
+        hasher.Append(Encoding.UTF8.GetBytes(typeof(FSharpChecker).Assembly.GetName().Version?.ToString() ?? "?"));
+        hasher.Append(Encoding.UTF8.GetBytes(Environment.Version.ToString()));
+        return Convert.ToHexStringLower(hasher.GetCurrentHash());
+    }
+
+    /// <summary>产物在、且校验和对得上才算能用。</summary>
+    private static bool IsUsable(string assemblyPath)
+    {
+        var checksumPath = assemblyPath + ChecksumSuffix;
+        if (!File.Exists(assemblyPath) || !File.Exists(checksumPath))
+        {
+            return false;
+        }
+
+        var expected = File.ReadAllText(checksumPath).Trim();
+        var actual = Convert.ToHexStringLower(XxHash128.Hash(File.ReadAllBytes(assemblyPath)));
+        return string.Equals(expected, actual, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool Compile(string scriptPath, string cacheDirectory, string name, IPluginContext context)
+    {
+        // 编到临时目录，成功了再原子改名 —— 崩在中间不会留下半个产物。
+        var staging = cacheDirectory + ".tmp";
+
         try
         {
-            // 不用 GetProjectOptionsFromScript：在没有 SDK 上下文的目录里它会退到 .NET Framework
-            // 的参考集（mscorlib / System.Windows.Forms）。这里直接按 SDK 的做法拼：
-            // --noframework + 显式的引用清单 —— 运行时、契约，以及这个 Provider 自己的依赖
-            // （FSharp.Core 等，它们随包走、不在宿主的 TPA 里）。
-            var references = CollectReferences().Select(path => "-r:" + path);
-
-            var arguments = new[]
-                {
-                    "--noframework",
-                    "--targetprofile:netcore",
-                    "--target:library",
-                    "-o:" + assemblyPath,
-                    scriptPath,
-                }
-                .Concat(references)
-                .ToArray();
-
-            // 返回 (diagnostics, exn option)：异常项为 None 就是编成功了。
-            var (diagnostics, failure) = FSharpAsync.RunSynchronously(_checker.Compile(arguments, null), null, null);
-            if (failure is null)
+            if (Directory.Exists(staging))
             {
-                return true;
+                Directory.Delete(staging, recursive: true);
+            }
+            Directory.CreateDirectory(staging);
+
+            var assemblyPath = Path.Combine(staging, name + ".dll");
+            if (!CompileTo(scriptPath, assemblyPath, context))
+            {
+                return false;
             }
 
-            foreach (var diagnostic in diagnostics.Where(d => d.Severity == global::FSharp.Compiler.Diagnostics.FSharpDiagnosticSeverity.Error))
-            {
-                context.Logger.LogError("{File}: {Message}", scriptPath, diagnostic.Message);
-            }
+            var checksum = Convert.ToHexStringLower(XxHash128.Hash(File.ReadAllBytes(assemblyPath)));
+            File.WriteAllText(assemblyPath + ChecksumSuffix, checksum);
 
-            return false;
+            Directory.CreateDirectory(Path.GetDirectoryName(cacheDirectory)!);
+            Directory.Move(staging, cacheDirectory);
+            PruneSiblings(cacheDirectory);
+            return true;
         }
         catch (Exception ex)
         {
             // 编译期出错只让这一个插件倒下（ADR-0009）。
             context.Logger.LogError(ex, "编译 {Script} 失败", scriptPath);
             return false;
+        }
+        finally
+        {
+            if (Directory.Exists(staging))
+            {
+                try
+                {
+                    Directory.Delete(staging, recursive: true);
+                }
+                catch (IOException)
+                {
+                    // 清理失败不影响结果。
+                }
+            }
+        }
+    }
+
+    private bool CompileTo(string scriptPath, string assemblyPath, IPluginContext context)
+    {
+        // 不用 GetProjectOptionsFromScript：在没有 SDK 上下文的目录里它会退到 .NET Framework
+        // 的参考集（mscorlib / System.Windows.Forms）。这里直接按 SDK 的做法拼：
+        // --noframework + 显式的引用清单 —— 运行时、契约，以及这个 Provider 自己的依赖
+        // （FSharp.Core 等，它们随包走、不在宿主的 TPA 里）。
+        var references = CollectReferences().Select(path => "-r:" + path);
+
+        var arguments = new[]
+            {
+                "--noframework",
+                "--targetprofile:netcore",
+                "--target:library",
+                "-o:" + assemblyPath,
+                scriptPath,
+            }
+            .Concat(references)
+            .ToArray();
+
+        // 返回 (diagnostics, exn option)：异常项为 None 就是编成功了。
+        var (diagnostics, failure) = FSharpAsync.RunSynchronously(_checker.Compile(arguments, null), null, null);
+        if (failure is null)
+        {
+            return true;
+        }
+
+        foreach (var diagnostic in diagnostics.Where(
+                     d => d.Severity == global::FSharp.Compiler.Diagnostics.FSharpDiagnosticSeverity.Error))
+        {
+            context.Logger.LogError("{File}: {Message}", scriptPath, diagnostic.Message);
+        }
+
+        return false;
+    }
+
+    /// <summary>同一个插件只留最新那一份产物；旧的内容寻址目录攒着没有意义。</summary>
+    private static void PruneSiblings(string cacheDirectory)
+    {
+        var root = Path.GetDirectoryName(cacheDirectory);
+        if (root is null || !Directory.Exists(root))
+        {
+            return;
+        }
+
+        foreach (var sibling in Directory.EnumerateDirectories(root))
+        {
+            if (string.Equals(sibling, cacheDirectory, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            try
+            {
+                Directory.Delete(sibling, recursive: true);
+            }
+            catch (IOException)
+            {
+                // 清不掉就留着 —— 它命中不了新的内容寻址，不会再被加载。
+            }
         }
     }
 

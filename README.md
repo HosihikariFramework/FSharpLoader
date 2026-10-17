@@ -65,8 +65,14 @@ script cannot.
 explicit reference list: the host's trusted platform assemblies, and the provider's own directory
 (which ships `FSharp.Core` and friends). The contract comes from the host, so it keeps its identity.
 
-The output goes to `<data directory>/bin/<name>.dll`. The package directory is replaced on upgrade;
-derived artifacts do not belong there.
+The output is cached by content: `<data directory>/bin/<hash>/<name>.dll`, the hash covering the
+script text, the compiler version and the runtime version. A checksum sits next to it and is verified
+before loading — a mismatch means recompile, never load anyway. Compilation goes into a staging
+directory and is moved into place only on success.
+
+The checksum guards against accidents (a swapped or half-written artifact, a compiler or runtime
+change), not against a hostile plugin: plugins share this process and are trusted (ADR-0011), so one
+could forge the cache as well. ADR-0029 records that boundary.
 
 ## Running it
 

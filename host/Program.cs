@@ -63,8 +63,11 @@ checks.Add((
     string.Join(", ", host.LoadedNames)
 ));
 
-checks.Add(("编译产物落在数据目录里", File.Exists(Path.Combine(dataDirectory, "bin", "Hello.dll")),
-    Path.Combine(dataDirectory, "bin", "Hello.dll")));
+// A26：内容寻址 —— 产物落在 bin/<脚本+编译器+运行时 的哈希>/ 下，校验和在旁边。
+var artifact = Artifact();
+checks.Add(("产物按内容寻址落盘，且带校验和",
+    artifact is not null && File.Exists(artifact + ".xxh128"),
+    artifact ?? "（没找到产物）"));
 
 var body = Read("body.txt");
 checks.Add(("脚本装载时执行，且读到包外覆盖的配置", body == "body:overridden", body));
@@ -80,6 +83,23 @@ checks.Add(("卸载时停用与卸载钩子都到达",
     $"disabled={Read("disabled.txt")} unloaded={Read("unloaded.txt")}"));
 checks.Add(("卸载验证通过（ALC 被真正回收）", unloaded.Released, unloaded.Error ?? "已回收"));
 
+// A27：同一个脚本再装载一次 —— 命中缓存，产物不该被重写。
+var before = artifact is null ? default : File.GetLastWriteTimeUtc(artifact);
+var reloaded = host.Load(Path.Combine(pluginsRoot, "Hello"));
+Thread.Sleep(50);
+var after = artifact is null ? default : File.GetLastWriteTimeUtc(artifact);
+checks.Add(("同一个脚本再装载命中缓存", reloaded && before == after, $"{before:O} → {after:O}"));
+host.Unload("Hello");
+
+// A28：把产物改坏 —— 校验和对不上就该丢弃重编，而不是照跑。
+if (artifact is not null)
+{
+    File.AppendAllText(artifact, "// tampered");
+}
+var recovered = host.Load(Path.Combine(pluginsRoot, "Hello"));
+var repaired = artifact is not null && IsChecksumValid(artifact);
+checks.Add(("产物被改坏后重编并通过校验", recovered && repaired, repaired ? "已重编" : "校验仍不符"));
+
 Console.WriteLine();
 Console.WriteLine("=== 断言 ===");
 foreach (var (name, passed, detail) in checks)
@@ -88,6 +108,27 @@ foreach (var (name, passed, detail) in checks)
 }
 
 return checks.All(check => check.Passed) ? 0 : 1;
+
+string? Artifact()
+{
+    var bin = Path.Combine(dataDirectory, "bin");
+    return !Directory.Exists(bin)
+        ? null
+        : Directory.EnumerateDirectories(bin).Select(d => Path.Combine(d, "Hello.dll")).FirstOrDefault(File.Exists);
+}
+
+bool IsChecksumValid(string path)
+{
+    var checksumPath = path + ".xxh128";
+    if (!File.Exists(path) || !File.Exists(checksumPath))
+    {
+        return false;
+    }
+
+    var expected = File.ReadAllText(checksumPath).Trim();
+    var actual = Convert.ToHexStringLower(System.IO.Hashing.XxHash128.Hash(File.ReadAllBytes(path)));
+    return string.Equals(expected, actual, StringComparison.OrdinalIgnoreCase);
+}
 
 string Read(string file)
 {
