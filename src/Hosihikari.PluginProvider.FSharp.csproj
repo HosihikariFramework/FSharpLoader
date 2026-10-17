@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Hosihikari.PluginProvider.FSharp</RootNamespace>
+    <AssemblyName>Hosihikari.PluginProvider.FSharp</AssemblyName>
+    <!-- 它本身要作为一个插件包分发，包里的依赖必须跟着构建输出走。 -->
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FSharp.Compiler.Service" Version="43.12.402" />
+  </ItemGroup>
+
+  <!-- 契约来自另一个仓，两种拿法二选一。 -->
+  <ItemGroup Condition="Exists('../../Hosihikari.Abstractions/src/Hosihikari.Abstractions.csproj')">
+    <ProjectReference Include="../../Hosihikari.Abstractions/src/Hosihikari.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="!Exists('../../Hosihikari.Abstractions/src/Hosihikari.Abstractions.csproj')">
+    <PackageReference Include="Hosihikari.Abstractions" Version="[0.5.0]" />
+  </ItemGroup>
+
+</Project>

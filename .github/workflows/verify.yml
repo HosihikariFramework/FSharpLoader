@@ -1,0 +1,31 @@
+name: verify
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  assertions:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 本仓
+        uses: actions/checkout@v4
+        with:
+          path: provider
+
+      # 验证宿主借核心的 PluginManagerHost。它按 ../.. 找这个目录，所以位置要照着摆。
+      - name: 核心
+        uses: actions/checkout@v4
+        with:
+          repository: HosihikariFramework/PluginManagement
+          path: Hosihikari.PluginManager
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # 契约走 nuget.org 的包（本仓没有并列的 Abstractions），与第三方作者同一条路。
+      - name: 跑断言
+        working-directory: provider
+        run: dotnet run --project host/Hosihikari.PluginProvider.FSharp.Host.csproj -c Release --nologo
