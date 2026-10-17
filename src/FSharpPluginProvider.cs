@@ -25,8 +25,12 @@ namespace Hosihikari.PluginProvider.FSharp;
 /// </summary>
 public sealed class FSharpPluginProvider : IPluginProvider
 {
-    /// <summary>与宿主共享的那一层 —— 必须由父上下文解析，免得出现第二个类型身份。</summary>
-    private static readonly string[] SharedAssemblies = ["Hosihikari.Abstractions"];
+    /// <summary>
+    /// 框架自己的装载上下文。组件托管给核心的是一个**隔离**的 ALC，契约与它的抽象包都在里面 ——
+    /// 不在默认上下文里，所以"返回 null 让父级兜底"在这里兜不到。
+    /// </summary>
+    private static readonly AssemblyLoadContext? FrameworkContext =
+        AssemblyLoadContext.GetLoadContext(typeof(IPlugin).Assembly);
 
     /// <summary>产物校验和的落地名：内容寻址管"该不该编"，它管"编出来的还是不是那个"。</summary>
     private const string ChecksumSuffix = ".xxh128";
@@ -198,6 +202,12 @@ public sealed class FSharpPluginProvider : IPluginProvider
             context.Logger.LogError("{File}: {Message}", scriptPath, diagnostic.Message);
         }
 
+        // 编译器也可能只抛异常、不给诊断 —— 那也要说出来，否则失败就成了哑的。
+        if (failure.Value is { } error)
+        {
+            context.Logger.LogError(error, "编译 {Script} 失败", scriptPath);
+        }
+
         return false;
     }
 
@@ -274,9 +284,17 @@ public sealed class FSharpPluginProvider : IPluginProvider
 
         protected override Assembly? Load(AssemblyName assemblyName)
         {
-            if (assemblyName.Name is null || SharedAssemblies.Contains(assemblyName.Name))
+            if (assemblyName.Name is null)
             {
-                return null; // 交给父上下文
+                return null;
+            }
+
+            // 框架已经有的（契约、它的抽象包……）一律用那一份，别在这里造第二个身份。
+            var fromFramework = FrameworkContext?.Assemblies.FirstOrDefault(
+                loaded => string.Equals(loaded.GetName().Name, assemblyName.Name, StringComparison.Ordinal));
+            if (fromFramework is not null)
+            {
+                return fromFramework;
             }
 
             var path = _resolver?.ResolveAssemblyToPath(assemblyName)
