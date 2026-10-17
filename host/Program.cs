@@ -81,6 +81,7 @@ checks.Add(("程序集发的通道消息被 F# 插件收到", Read("ping.txt") =
 // 包内自带的第三方依赖：编译期看得见、运行期从包里解析。
 var expectedHash = Convert.ToHexStringLower(System.IO.Hashing.XxHash128.Hash(new byte[] { 1, 2, 3 }));
 checks.Add(("包内自带的第三方依赖可用", Read("hash.txt") == expectedHash, Read("hash.txt")));
+checks.Add(("宿主未引用的包内私有依赖可用", Read("private.txt") == "private-dependency", Read("private.txt")));
 
 var unloaded = host.Unload("Hello");
 checks.Add(("卸载时停用与卸载钩子都到达",
@@ -104,6 +105,26 @@ if (artifact is not null)
 var recovered = host.Load(Path.Combine(pluginsRoot, "Hello"));
 var repaired = artifact is not null && IsChecksumValid(artifact);
 checks.Add(("产物被改坏后重编并通过校验", recovered && repaired, repaired ? "已重编" : "校验仍不符"));
+
+host.Unload("Hello");
+var scriptDirectory = Path.Combine(pluginsRoot, "Hello");
+var scriptPath = Path.Combine(scriptDirectory, "main.fsx");
+var helperPath = Path.Combine(scriptDirectory, "helper.fsx");
+File.WriteAllText(helperPath, "module Helper\nlet value = \"first:\"\n");
+File.WriteAllText(scriptPath, "#load \"helper.fsx\"\n" + File.ReadAllText(scriptPath)
+    .Replace("\"body:\" + greeting", "Helper.value + greeting", StringComparison.Ordinal));
+var withHelper = host.Load(scriptDirectory);
+var firstBody = Read("body.txt");
+var firstRelease = host.Unload("Hello");
+File.WriteAllText(helperPath, "module Helper\nlet value = \"changed:\"\n");
+var withChangedHelper = host.Load(scriptDirectory);
+var changedBody = Read("body.txt");
+checks.Add(("只改 #load 源码后重载使用新代码",
+    withHelper && firstBody == "first:overridden" && withChangedHelper && changedBody == "changed:overridden",
+    $"{firstBody} → {changedBody}"));
+var secondRelease = host.Unload("Hello");
+checks.Add(("带 #load 的插件重载前后都能回收", firstRelease.Released && secondRelease.Released,
+    $"first={firstRelease.Released} second={secondRelease.Released}"));
 
 Console.WriteLine();
 Console.WriteLine("=== 断言 ===");
@@ -203,6 +224,9 @@ void StageScriptPackage()
     File.Copy(
         Path.Combine(RepoRoot(), "src", "bin", ConfigurationName(), "net10.0", "System.IO.Hashing.dll"),
         Path.Combine(package, "System.IO.Hashing.dll"));
+    File.Copy(
+        Path.Combine(RepoRoot(), "test", "PrivateDependency", "bin", ConfigurationName(), "net10.0", "Hosihikari.FSharp.PrivateDependency.dll"),
+        Path.Combine(package, "Hosihikari.FSharp.PrivateDependency.dll"));
 
     File.WriteAllText(Path.Combine(package, "main.fsx"), """
         open Hosihikari
@@ -219,6 +243,7 @@ void StageScriptPackage()
                     let hash = System.Convert.ToHexStringLower(
                                    System.IO.Hashing.XxHash128.Hash([| 1uy; 2uy; 3uy |]))
                     File.WriteAllText(Path.Combine(dataDirectory, "hash.txt"), hash)
+                    File.WriteAllText(Path.Combine(dataDirectory, "private.txt"), ProviderPrivateDependency.Marker.Value)
                     context.Events.Subscribe<ChannelMessage>(fun message ->
                         if message.Topic = "ping" then
                             let path = Path.Combine(dataDirectory, "ping.txt")

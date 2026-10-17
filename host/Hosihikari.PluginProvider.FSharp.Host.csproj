@@ -11,6 +11,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="10.0.13" />
     <ProjectReference Include="../src/Hosihikari.PluginProvider.FSharp.csproj" />
+    <ProjectReference Include="../test/PrivateDependency/PrivateDependency.csproj" ReferenceOutputAssembly="false" />
     <!-- 验证宿主借核心的 PluginManagerHost；并列 checkout 才有。 -->
     <ProjectReference Include="../../Hosihikari.PluginManager/src/Hosihikari.PluginManager.csproj"
                       Condition="Exists('../../Hosihikari.PluginManager/src/Hosihikari.PluginManager.csproj')" />

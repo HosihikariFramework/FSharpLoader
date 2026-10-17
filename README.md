@@ -66,11 +66,17 @@ script cannot.
 .NET Framework reference set. The provider passes `--noframework --targetprofile:netcore` plus an
 explicit reference list: the host's trusted platform assemblies, and the provider's own directory
 (which ships `FSharp.Core` and friends). The contract comes from the host, so it keeps its identity.
+Private DLLs in the plugin package root are also referenced at compile time and resolved from that
+directory at runtime.
 
 The output is cached by content: `<data directory>/bin/<hash>/<name>.dll`, the hash covering the
-script text, the compiler version and the runtime version. A checksum sits next to it and is verified
+script text, package-local private DLL names and contents, the compiler version and the runtime version. A checksum sits next to it and is verified
 before loading — a mismatch means recompile, never load anyway. Compilation goes into a staging
 directory and is moved into place only on success.
+
+An entry containing `#` is recompiled on every load. Directives such as `#load` and `#r` can introduce
+external or recursive dependencies that this cache key does not cover. This conservative check also
+recompiles entries with `#` in comments or strings; entries without `#` still reuse valid artifacts.
 
 The checksum guards against accidents (a swapped or half-written artifact, a compiler or runtime
 change), not against a hostile plugin: plugins share this process and are trusted (ADR-0011), so one
@@ -83,12 +89,14 @@ dotnet run --project host/Hosihikari.PluginProvider.FSharp.Host.csproj -c Releas
 ```
 
 The harness drives this Provider through the core's real `PluginManagerHost`, so sibling
-`Hosihikari.PluginManager` and `Hosihikari.Abstractions` checkouts are required. It proves ten
+`Hosihikari.PluginManager` and `Hosihikari.Abstractions` checkouts are required. It checks these
 things: the Provider is registered by a plugin package, the artifact lands in a content-addressed
 directory with its checksum and PDB, the script runs at load and reads the operator's override,
 enable hooks reach it, a channel message from the host reaches it, a package-local third-party
 dependency is usable, disable and unload hooks arrive, the unload verifies (the ALC is actually
 collected), a second load hits the cache, and a tampered artifact is detected and recompiled.
+It also uses a private fixture DLL that the host does not reference, and checks that editing only a
+`#load` helper changes the next load while both loaded instances can still be collected.
 
 ## How it reaches the host process
 

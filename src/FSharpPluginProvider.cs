@@ -56,9 +56,11 @@ public sealed class FSharpPluginProvider : IPluginProvider
         var cacheDirectory = Path.Combine(context.DataDirectory, "bin", CacheKey(script, packageDirectory));
         var assemblyPath = Path.Combine(cacheDirectory, manifest.Name + ".dll");
 
-        if (!IsUsable(assemblyPath))
+        // 指令能引入包外、递归的源码或引用；不完整的依赖键会静默运行旧代码。
+        // shortcut: 含 # 的入口每次编译（注释或字符串也算）；需缓存时再接批编译一致的依赖解析。
+        if (script.Contains('#') || !IsUsable(assemblyPath))
         {
-            // 没有、或校验和对不上 —— 都丢弃重编，绝不"验不过也照跑"。
+            // 指令入口每次重编；其他入口缺失或校验失败时重编。
             if (Directory.Exists(cacheDirectory))
             {
                 Directory.Delete(cacheDirectory, recursive: true);
@@ -73,7 +75,7 @@ public sealed class FSharpPluginProvider : IPluginProvider
         // F# 插件的依赖从它自己的目录解析；契约、框架与运行时由父上下文给。
         CopyNeighbour(typeof(Microsoft.FSharp.Core.Unit).Assembly.Location, cacheDirectory);
 
-        var loadContext = new ScriptLoadContext(assemblyPath, cacheDirectory);
+        var loadContext = new ScriptLoadContext(assemblyPath, cacheDirectory, packageDirectory);
         var assembly = loadContext.LoadFromAssemblyPath(assemblyPath);
 
         var entryType = assembly.GetTypes().FirstOrDefault(candidate =>
@@ -309,7 +311,7 @@ public sealed class FSharpPluginProvider : IPluginProvider
     }
 
     /// <summary>每个插件一个 collectible ALC：自己的依赖从自己的目录解析，契约走父上下文。</summary>
-    private sealed class ScriptLoadContext(string mainAssemblyPath, string directory)
+    private sealed class ScriptLoadContext(string mainAssemblyPath, string directory, string packageDirectory)
         : AssemblyLoadContext(name: Path.GetFileNameWithoutExtension(mainAssemblyPath), isCollectible: true)
     {
         private readonly AssemblyDependencyResolver? _resolver = TryCreateResolver(mainAssemblyPath);
@@ -330,7 +332,8 @@ public sealed class FSharpPluginProvider : IPluginProvider
             }
 
             var path = _resolver?.ResolveAssemblyToPath(assemblyName)
-                       ?? Existing(Path.Combine(directory, assemblyName.Name + ".dll"));
+                       ?? Existing(Path.Combine(directory, assemblyName.Name + ".dll"))
+                       ?? Existing(Path.Combine(packageDirectory, assemblyName.Name + ".dll"));
             return path is null ? null : LoadFromAssemblyPath(path);
         }
 
