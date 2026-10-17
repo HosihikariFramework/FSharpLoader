@@ -10,7 +10,7 @@ That buys F# plugins the same promises as any assembly plugin: per-plugin depend
 an unload that is verified rather than assumed.
 
 **In-process .NET.** The framework keeps the assembly provider, the C# provider and this F# provider
-in-process; JavaScript, Python and Lua go through the generic out-of-process provider
+in-process; other languages go through the generic out-of-process provider
 (`Hosihikari.PluginProvider.Rpc`, ADR-0031).
 
 ## What a plugin package looks like
