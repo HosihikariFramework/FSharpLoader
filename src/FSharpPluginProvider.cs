@@ -183,6 +183,8 @@ public sealed class FSharpPluginProvider : IPluginProvider
                 "--noframework",
                 "--targetprofile:netcore",
                 "--target:library",
+                // 没有 PDB 就没有 file:line，而日志是唯一的诊断通道。
+                "--debug:portable",
                 "-o:" + assemblyPath,
                 scriptPath,
             }

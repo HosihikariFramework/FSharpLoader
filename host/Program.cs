@@ -65,8 +65,9 @@ checks.Add((
 
 // A26：内容寻址 —— 产物落在 bin/<脚本+编译器+运行时 的哈希>/ 下，校验和在旁边。
 var artifact = Artifact();
-checks.Add(("产物按内容寻址落盘，且带校验和",
-    artifact is not null && File.Exists(artifact + ".xxh128"),
+var artifactPdb = artifact is null ? null : Path.ChangeExtension(artifact, ".pdb");
+checks.Add(("产物按内容寻址落盘，带校验和与 PDB",
+    artifact is not null && File.Exists(artifact + ".xxh128") && artifactPdb is not null && File.Exists(artifactPdb),
     artifact ?? "（没找到产物）"));
 
 var body = Read("body.txt");
