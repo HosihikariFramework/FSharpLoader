@@ -24,9 +24,17 @@ internal sealed class ScriptPlugin(IPluginContext context) : IPlugin
     {
     }
 
-    public void OnEnable() => Invoke(_enable, "onEnable");
+    public PluginHookResult OnEnable()
+    {
+        Invoke(_enable, "onEnable");
+        return PluginHookResult.Allow();
+    }
 
-    public void OnDisable() => Invoke(_disable, "onDisable");
+    public PluginHookResult OnDisable()
+    {
+        Invoke(_disable, "onDisable");
+        return PluginHookResult.Allow();
+    }
 
     public void OnUnload() => Invoke(_unload, "onUnload");
 

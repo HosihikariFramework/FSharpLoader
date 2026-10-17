@@ -26,7 +26,7 @@ plugins/Hello/
         { "name": "hosihikari" },
         { "name": "hosihikari-fsharp" }
       ],
-      "extraInfo": { "api": "1", "format_version": "1", "provider": "fsharp" }
+      "extraInfo": { "api": "2", "format_version": "1", "provider": "fsharp" }
     }
   main.fsx
   Hello.conf          ← the author's defaults, shipped with the package
@@ -49,7 +49,8 @@ type HelloPlugin() =
             File.WriteAllText(Path.Combine(dataDirectory, "body.txt"), "body:" + greeting)
         member this.OnEnable() =
             File.WriteAllText(Path.Combine(dataDirectory, "enabled.txt"), "enabled")
-        member this.OnDisable() = ()
+            PluginHookResult.Allow()
+        member this.OnDisable() = PluginHookResult.Allow()
         member this.OnUnload() = ()
 ```
 

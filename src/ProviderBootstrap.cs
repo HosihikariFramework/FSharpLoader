@@ -15,13 +15,9 @@ public sealed class ProviderBootstrap : IPlugin
 {
     public void OnLoad(IPluginContext context) => context.RegisterProvider(new FSharpPluginProvider());
 
-    public void OnEnable()
-    {
-    }
+    public PluginHookResult OnEnable() => PluginHookResult.Allow();
 
-    public void OnDisable()
-    {
-    }
+    public PluginHookResult OnDisable() => PluginHookResult.Allow();
 
     public void OnUnload()
     {

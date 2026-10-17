@@ -154,7 +154,7 @@ void StageProviderPackage()
           "type": "hosihikari",
           "version": "0.1.0",
           "dependencies": [ { "name": "hosihikari" } ],
-          "extraInfo": { "api": "1", "format_version": "1", "provider": "assembly" }
+          "extraInfo": { "api": "2", "format_version": "1", "provider": "assembly" }
         }
         """);
 
@@ -192,7 +192,7 @@ void StageScriptPackage()
             { "name": "hosihikari" },
             { "name": "hosihikari-fsharp" }
           ],
-          "extraInfo": { "api": "1", "format_version": "1", "provider": "fsharp" }
+          "extraInfo": { "api": "2", "format_version": "1", "provider": "fsharp" }
         }
         """);
 
@@ -226,8 +226,10 @@ void StageScriptPackage()
                     |> ignore
                 member this.OnEnable() =
                     File.WriteAllText(Path.Combine(dataDirectory, "enabled.txt"), "enabled")
+                    PluginHookResult.Allow()
                 member this.OnDisable() =
                     File.WriteAllText(Path.Combine(dataDirectory, "disabled.txt"), "disabled")
+                    PluginHookResult.Allow()
                 member this.OnUnload() =
                     File.WriteAllText(Path.Combine(dataDirectory, "unloaded.txt"), "unloaded")
         """);
