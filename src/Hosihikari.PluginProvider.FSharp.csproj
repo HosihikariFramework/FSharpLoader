@@ -13,7 +13,7 @@
   <ItemGroup>
     <PackageReference Include="FSharp.Compiler.Service" Version="43.12.402" />
     <!-- 内容寻址与产物校验和都用 xxhash。 -->
-    <PackageReference Include="System.IO.Hashing" Version="10.0.0" />
+    <PackageReference Include="System.IO.Hashing" Version="10.0.13" />
   </ItemGroup>
 
   <!-- 契约来自另一个仓，两种拿法二选一。 -->
