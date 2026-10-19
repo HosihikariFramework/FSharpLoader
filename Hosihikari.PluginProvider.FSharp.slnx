@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Hosihikari.PluginProvider.FSharp.csproj" />
+  </Folder>
+  <Folder Name="/host/">
+    <Project Path="host/Hosihikari.PluginProvider.FSharp.Host.csproj" />
+  </Folder>
+  <Folder Name="/test/">
+    <Project Path="test/PrivateDependency/PrivateDependency.csproj" />
+  </Folder>
+</Solution>
