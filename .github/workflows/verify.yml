@@ -28,6 +28,13 @@ jobs:
           repository: HosihikariFramework/Abstractions
           path: Hosihikari.Abstractions
 
+      # 本机库的 RID 优先解析需要 fork；核心按 ../.. 找它。
+      - name: McMaster fork
+        uses: actions/checkout@v4
+        with:
+          repository: HosihikariFramework/Hosihikari.McMaster.NETCore.Plugins
+          path: Hosihikari.McMaster.NETCore.Plugins
+
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'

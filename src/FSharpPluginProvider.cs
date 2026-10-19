@@ -120,9 +120,24 @@ public sealed class FSharpPluginProvider : IPluginProvider
     /// <summary>插件目录里自带的依赖；框架已经有的那些不算（共享层，ADR-0004）。</summary>
     private static IReadOnlyList<string> LocalAssemblies(string packageDirectory) =>
         Directory.EnumerateFiles(packageDirectory, "*.dll")
+            .Where(IsManagedAssembly)
             .Where(path => !IsFrameworkAssembly(Path.GetFileNameWithoutExtension(path)))
             .OrderBy(path => path, StringComparer.Ordinal)
             .ToArray();
+
+    /// <summary>包根可以有本机库（ADR-0034）；它们不能当编译器的元数据引用。</summary>
+    private static bool IsManagedAssembly(string path)
+    {
+        try
+        {
+            AssemblyName.GetAssemblyName(path);
+            return true;
+        }
+        catch (BadImageFormatException)
+        {
+            return false;
+        }
+    }
 
     private static bool IsFrameworkAssembly(string name) =>
         FrameworkContext?.Assemblies.Any(loaded => string.Equals(loaded.GetName().Name, name, StringComparison.Ordinal))
@@ -335,6 +350,53 @@ public sealed class FSharpPluginProvider : IPluginProvider
                        ?? Existing(Path.Combine(directory, assemblyName.Name + ".dll"))
                        ?? Existing(Path.Combine(packageDirectory, assemblyName.Name + ".dll"));
             return path is null ? null : LoadFromAssemblyPath(path);
+        }
+
+        protected override IntPtr LoadUnmanagedDll(string unmanagedDllName)
+        {
+            // 本机库随进程存活；这里只负责按 RID → 包根的顺序找到它（ADR-0034）。
+            var path = FindNativeLibrary(packageDirectory, unmanagedDllName);
+            return path is null ? IntPtr.Zero : LoadUnmanagedDllFromPath(path);
+        }
+
+        private static string? FindNativeLibrary(string root, string unmanagedDllName)
+        {
+            string[] prefixes = OperatingSystem.IsWindows() ? [""] : ["", "lib"];
+            string[] extensions = OperatingSystem.IsWindows() ? [".dll"]
+                : OperatingSystem.IsMacOS() ? [".dylib"] : [".so", ".so.1"];
+            var directories = new[]
+            {
+                Path.Combine(root, "runtimes", System.Runtime.InteropServices.RuntimeInformation.RuntimeIdentifier, "native"),
+                root,
+            };
+
+            foreach (var directory in directories)
+            {
+                if (!Directory.Exists(directory))
+                {
+                    continue;
+                }
+
+                foreach (var prefix in prefixes)
+                {
+                    foreach (var extension in extensions)
+                    {
+                        var candidate = Existing(Path.Combine(directory, prefix + unmanagedDllName + extension));
+                        if (candidate is not null)
+                        {
+                            return candidate;
+                        }
+
+                        candidate = Existing(Path.Combine(directory, prefix + unmanagedDllName));
+                        if (candidate is not null)
+                        {
+                            return candidate;
+                        }
+                    }
+                }
+            }
+
+            return null;
         }
 
         private static string? Existing(string path) => File.Exists(path) ? Path.GetFullPath(path) : null;
