@@ -7,7 +7,8 @@ The **F# plugin Provider** of the Hosihikari framework. F# runs on the CLR, so t
 into its own collectible ALC.
 
 That buys F# plugins the same promises as any assembly plugin: per-plugin dependency isolation, and
-an unload that is verified rather than assumed.
+an unload that is verified rather than assumed. This is the official AOT-style path: the provider
+hands the core an assembly before the plugin runs, and the plugin itself is ordinary CLR code.
 
 **In-process .NET.** The framework keeps the assembly provider, the C# provider and this F# provider
 in-process; other languages go through the generic out-of-process provider
@@ -33,7 +34,7 @@ plugins/Hello/
   Hello.conf          ← the author's defaults, shipped with the package
 ```
 
-The script defines a type implementing `IPlugin` with a parameterless constructor; finding it is the
+The source defines a type implementing `IPlugin` with a parameterless constructor; finding it is the
 provider's job. Annotate the hook parameter — the compiler needs it:
 
 ```fsharp
@@ -57,7 +58,7 @@ type HelloPlugin() =
 
 Because the result is a real assembly referencing the contract, an F# plugin reaches everything a C#
 plugin does — including the type-keyed channels (event bus, service registry) that an out-of-process
-script cannot.
+plugin cannot.
 
 ## How it compiles
 
@@ -70,7 +71,7 @@ Private DLLs in the plugin package root are also referenced at compile time and 
 directory at runtime.
 
 The output is cached by content: `<data directory>/bin/<hash>/<name>.dll`, the hash covering the
-script text, package-local private DLL names and contents, the compiler version and the runtime version. A checksum sits next to it and is verified
+source text, package-local private DLL names and contents, the compiler version and the runtime version. A checksum sits next to it and is verified
 before loading — a mismatch means recompile, never load anyway. Compilation goes into a staging
 directory and is moved into place only on success.
 
@@ -91,7 +92,7 @@ dotnet run --project host/Hosihikari.PluginProvider.FSharp.Host.csproj -c Releas
 The harness drives this Provider through the core's real `PluginManagerHost`, so sibling
 `Hosihikari.PluginManager`, `Hosihikari.Abstractions` and McMaster fork checkouts are required. It checks these
 things: the Provider is registered by a plugin package, the artifact lands in a content-addressed
-directory with its checksum and PDB, the script runs at load and reads the operator's override,
+directory with its checksum and PDB, the source is compiled at load and reads the operator's override,
 enable hooks reach it, a channel message from the host reaches it, a package-local third-party
 dependency is usable, disable and unload hooks arrive, the unload verifies (the ALC is actually
 collected), a second load hits the cache, and a tampered artifact is detected and recompiled.
@@ -100,7 +101,7 @@ It also uses a private fixture DLL that the host does not reference, and checks 
 
 ## How it reaches the host process
 
-As a plugin package, named `hosihikari-fsharp` — the same way as the C# provider. Script packages
+As a plugin package, named `hosihikari-fsharp` — the same way as the C# provider. Source packages
 declare the dependency, and the dependency graph orders the provider first:
 
 ```json
