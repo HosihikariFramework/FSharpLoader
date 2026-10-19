@@ -122,6 +122,9 @@ It assembles the provider DLL, its private dependencies and the manifest into
 `hosihikari-fsharp/`; the shared layer is not copied. Pushing a `v*` tag attaches the zip to the
 GitHub release (ADR-0036).
 
+After release: `lip install github.com/HosihikariFramework/FSharpProvider` (install the Shim
+variant for the carrier first).
+
 ## Licence
 
 LGPL-3.0-or-later, see [LICENSE.md](LICENSE.md).

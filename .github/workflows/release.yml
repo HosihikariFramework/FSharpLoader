@@ -33,6 +33,11 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      - name: 校验 tooth JSON
+        shell: bash
+        working-directory: provider
+        run: jq empty tooth.json
+
       - name: 版本
         id: version
         shell: bash
@@ -41,6 +46,17 @@ jobs:
             echo "value=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
           else
             echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 校验 tooth 版本
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        working-directory: provider
+        run: |
+          tooth=$(jq -r .version tooth.json)
+          if [ "$tooth" != "${{ steps.version.outputs.value }}" ]; then
+            echo "tooth.json 是 $tooth，标签版本是 ${{ steps.version.outputs.value }}"
+            exit 1
           fi
 
       - name: 打包
