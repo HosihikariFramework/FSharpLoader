@@ -18,32 +18,32 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: 本仓
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           path: provider
 
       # Provider 编译到契约；共享层不进 Provider 包（ADR-0036）。
       - name: 契约
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: HosihikariFramework/Abstractions
           path: Hosihikari.Abstractions
 
       # 打包器在核心仓；共享层清单由它统一给出（ADR-0036）。
       - name: 核心打包器
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: HosihikariFramework/PluginManagement
           path: Hosihikari.PluginManager
 
       # 核心的 RID 优先解析需要 fork。
       - name: McMaster fork
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: HosihikariFramework/Hosihikari.McMaster.NETCore.Plugins
           path: Hosihikari.McMaster.NETCore.Plugins
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
 
@@ -78,14 +78,14 @@ jobs:
         working-directory: provider
         run: ./pack.ps1 -Version "${{ steps.version.outputs.value }}" -OutputRoot artifacts
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: package
           path: provider/artifacts/*.zip
 
       - name: 发布
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: provider/artifacts/*.zip
           body: |

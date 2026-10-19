@@ -10,32 +10,32 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: 本仓
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           path: provider
 
       # 验证宿主借核心的 PluginManagerHost。它按 ../.. 找这个目录，所以位置要照着摆。
       - name: 核心
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: HosihikariFramework/PluginManagement
           path: Hosihikari.PluginManager
 
       # 契约与核心一起改：并列摆放才能编到新契约。
       - name: 契约
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: HosihikariFramework/Abstractions
           path: Hosihikari.Abstractions
 
       # 本机库的 RID 优先解析需要 fork；核心按 ../.. 找它。
       - name: McMaster fork
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: HosihikariFramework/Hosihikari.McMaster.NETCore.Plugins
           path: Hosihikari.McMaster.NETCore.Plugins
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
       - name: 跑断言
