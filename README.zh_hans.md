@@ -97,6 +97,14 @@ dotnet run --project host/Hosihikari.PluginProvider.FSharp.Host.csproj -c Releas
 
 **登记之后不能撤销**：它造出来的类型住在它的装载上下文里。
 
+## 打包
+
+```
+pwsh ./pack.ps1 -Version 0.1.0 -OutputRoot artifacts
+```
+
+它把 Provider DLL、私有依赖与清单装进 `hosihikari-fsharp/`，共享层不随包走；打 `v*` 标签时 CI 把 zip 附到 release（ADR-0036）。
+
 ## 许可
 
 LGPL-3.0-or-later，见 [LICENSE.md](LICENSE.md)。

@@ -112,6 +112,16 @@ declare the dependency, and the dependency graph orders the provider first:
 
 **Registration cannot be undone**: the types this provider hands out live in its load context.
 
+## Packaging
+
+```
+pwsh ./pack.ps1 -Version 0.1.0 -OutputRoot artifacts
+```
+
+It assembles the provider DLL, its private dependencies and the manifest into
+`hosihikari-fsharp/`; the shared layer is not copied. Pushing a `v*` tag attaches the zip to the
+GitHub release (ADR-0036).
+
 ## Licence
 
 LGPL-3.0-or-later, see [LICENSE.md](LICENSE.md).
