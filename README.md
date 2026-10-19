@@ -89,7 +89,7 @@ dotnet run --project host/Hosihikari.PluginProvider.FSharp.Host.csproj -c Releas
 ```
 
 The harness drives this Provider through the core's real `PluginManagerHost`, so sibling
-`Hosihikari.PluginManager` and `Hosihikari.Abstractions` checkouts are required. It checks these
+`Hosihikari.PluginManager`, `Hosihikari.Abstractions` and McMaster fork checkouts are required. It checks these
 things: the Provider is registered by a plugin package, the artifact lands in a content-addressed
 directory with its checksum and PDB, the script runs at load and reads the operator's override,
 enable hooks reach it, a channel message from the host reaches it, a package-local third-party

@@ -78,8 +78,7 @@ type HelloPlugin() =
 dotnet run --project host/Hosihikari.PluginProvider.FSharp.Host.csproj -c Release
 ```
 
-验证宿主借核心的 `PluginManagerHost` 驱动它，所以需要并列的 `Hosihikari.PluginManager` 与
-`Hosihikari.Abstractions` checkout。它验证：Provider 由插件包登记、产物按内容寻址落盘且带校验和
+验证宿主借核心的 `PluginManagerHost` 驱动它，所以需要并列的 `Hosihikari.PluginManager`、`Hosihikari.Abstractions` 与 McMaster 的 fork checkout。它验证：Provider 由插件包登记、产物按内容寻址落盘且带校验和
 与 PDB、脚本装载时执行并读到包外覆盖、启用钩子到达插件、宿主发的通道消息它能收到、包内自带的第三方依赖
 可用、停用与卸载钩子到达、卸载验证通过（ALC 真的被回收）、同一个脚本再装载命中缓存、以及产物被改坏后
 会被发现并重编。
