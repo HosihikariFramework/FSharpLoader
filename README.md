@@ -8,7 +8,7 @@ into its own collectible ALC.
 
 That buys F# plugins the same promises as any assembly plugin: per-plugin dependency isolation, and
 an unload that is verified rather than assumed. This is a first-class provider: it AOT-compiles source
-to IL before the plugin runs, and the core loads that IL into a collectible ALC.
+to IL before the plugin runs, and the provider loads that IL into a collectible ALC.
 
 **In-process .NET.** The framework keeps the assembly provider, the C# provider and this F# provider
 in-process; other languages go through the generic out-of-process provider
