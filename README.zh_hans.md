@@ -106,6 +106,8 @@ pwsh ./pack.ps1 -Version 0.1.0 -OutputRoot artifacts
 
 它把 Provider DLL、私有依赖与清单装进 `hosihikari-fsharp/`，共享层不随包走；打 `v*` 标签时 CI 把 zip 附到 release（ADR-0036）。
 
+打包脚本调用核心打包器（`Hosihikari.PluginManager/tools/Pack`），共享层清单由核心统一给出；需要并列检出核心仓，或设置 `HOSIHIKARI_PLUGINMANAGER`。
+
 发布后：`lip install github.com/HosihikariFramework/FSharpProvider`（先按载体装 Shim）。
 
 ## 许可
