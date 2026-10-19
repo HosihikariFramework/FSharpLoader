@@ -2,7 +2,7 @@
 
 [English](README.md) | [简体中文](README.zh_hans.md)
 
-星光框架的 **F# 型插件 Provider**。F# 没有自己的虚拟机 —— 它就跑在 CLR 上 —— 所以这个 Provider
+星光框架的 **F# 型插件 Provider**。F# 直接跑在 CLR 上，所以这个 Provider
 **装载时编译**：`.fsx` 变成一个真正的程序集，再进它自己的 collectible ALC。
 
 这让 F# 插件拿到与其他程序集插件一样的承诺：每插件的依赖互相隔离，卸载是真的验证过而不是假定的。

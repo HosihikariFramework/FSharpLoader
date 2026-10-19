@@ -15,7 +15,7 @@ namespace Hosihikari.PluginProvider.FSharp;
 /// <summary>
 /// F# 型插件（ADR-0002 的 Provider 扩展点）。
 ///
-/// F# 没有自己的虚拟机 —— 它就跑在 CLR 上。所以这个 Provider 做的事是**装载时编译**：
+/// F# 直接跑在 CLR 上。这个 Provider 做的事是**装载时编译**：
 /// 把清单 <c>entry</c> 指向的 <c>.fsx</c> 编成一个程序集，再交给一个 collectible ALC。
 ///
 /// 编译产物按**内容寻址**缓存（ADR-0029）：目录名是脚本内容、编译器与运行时版本的哈希，

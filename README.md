@@ -2,8 +2,8 @@
 
 [English](README.md) | [简体中文](README.zh_hans.md)
 
-The **F# plugin Provider** of the Hosihikari framework. F# has no VM of its own — it runs on the
-CLR — so this provider **compiles at load time**: a `.fsx` becomes a real assembly, which then goes
+The **F# plugin Provider** of the Hosihikari framework. F# runs on the CLR, so this provider
+**compiles at load time**: a `.fsx` becomes a real assembly, which then goes
 into its own collectible ALC.
 
 That buys F# plugins the same promises as any assembly plugin: per-plugin dependency isolation, and
