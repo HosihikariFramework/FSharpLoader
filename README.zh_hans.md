@@ -6,7 +6,7 @@
 **装载时编译**：`.fsx` 变成一个真正的程序集，再进它自己的 collectible ALC。
 
 这让 F# 插件拿到与其他程序集插件一样的承诺：每插件的依赖互相隔离，卸载是真的验证过而不是假定的。
-这是官方的 AOT 式路径：Provider 在插件开始运行前把程序集交给核心，插件本身是普通 CLR 代码。
+这是一等 Provider：在插件开始运行前把源码 AOT 为 IL，核心把 IL 装进 collectible ALC。
 
 **进程内只留 .NET。** 框架在进程内保留程序集型、C# 与 F# 三个 Provider；其他语言走
 通用的进程外 Provider（`Hosihikari.PluginProvider.Rpc`，ADR-0031）。
