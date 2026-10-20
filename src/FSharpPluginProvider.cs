@@ -32,6 +32,9 @@ public sealed class FSharpPluginProvider : IPluginProvider
     private static readonly AssemblyLoadContext? FrameworkContext =
         AssemblyLoadContext.GetLoadContext(typeof(IPlugin).Assembly);
 
+    private static readonly string? ProviderDirectory =
+        Path.GetDirectoryName(typeof(FSharpPluginProvider).Assembly.Location);
+
     /// <summary>产物校验和的落地名：内容寻址管"该不该编"，它管"编出来的还是不是那个"。</summary>
     private const string ChecksumSuffix = ".xxh128";
 
@@ -312,14 +315,16 @@ public sealed class FSharpPluginProvider : IPluginProvider
         }
     }
 
-    /// <summary>宿主的运行时 + 框架自己的 ALC + 插件包里自带的依赖。这个 Provider 自己的目录
-    /// （FSharp.Core 等随包走）也在这里加进来。</summary>
+    /// <summary>
+    /// 与运行期同一优先级：插件包自带的依赖优先，其次 Provider 目录（FSharp.Core 等），
+    /// 最后是宿主的 TPA。反过来的话，包内旧版本可能在编译期被 TPA 的新版本遮蔽，
+    /// 运行期 ALC 又按包内版本加载，最后在调用新 API 时抛 MissingMethodException。
+    /// </summary>
     private static IEnumerable<string> CollectReferences(string packageDirectory)
     {
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        var trusted = (string?)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES");
-        foreach (var path in (trusted ?? string.Empty).Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
+        foreach (var path in LocalAssemblies(packageDirectory))
         {
             if (seen.Add(Path.GetFileName(path)))
             {
@@ -327,7 +332,7 @@ public sealed class FSharpPluginProvider : IPluginProvider
             }
         }
 
-        var providerDirectory = Path.GetDirectoryName(typeof(FSharpPluginProvider).Assembly.Location);
+        var providerDirectory = ProviderDirectory;
         if (providerDirectory is null)
         {
             yield break;
@@ -341,7 +346,8 @@ public sealed class FSharpPluginProvider : IPluginProvider
             }
         }
 
-        foreach (var path in LocalAssemblies(packageDirectory))
+        var trusted = (string?)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES");
+        foreach (var path in (trusted ?? string.Empty).Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
         {
             if (seen.Add(Path.GetFileName(path)))
             {
@@ -382,7 +388,10 @@ public sealed class FSharpPluginProvider : IPluginProvider
 
             var path = _resolver?.ResolveAssemblyToPath(assemblyName)
                        ?? Existing(Path.Combine(directory, assemblyName.Name + ".dll"))
-                       ?? Existing(Path.Combine(packageDirectory, assemblyName.Name + ".dll"));
+                       ?? Existing(Path.Combine(packageDirectory, assemblyName.Name + ".dll"))
+                       ?? (ProviderDirectory is null
+                           ? null
+                           : Existing(Path.Combine(ProviderDirectory, assemblyName.Name + ".dll")));
             return path is null ? null : LoadFromAssemblyPath(path);
         }
 
