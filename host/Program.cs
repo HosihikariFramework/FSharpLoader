@@ -1,3 +1,4 @@
+using System.Runtime.Loader;
 using Hosihikari.PluginManagement;
 using Hosihikari.PluginProvider.FSharp;
 using Microsoft.Extensions.DependencyInjection;
@@ -131,6 +132,87 @@ checks.Add(("只改 #load 源码后重载使用新代码",
 var secondRelease = host.Unload("Hello");
 checks.Add(("带 #load 的插件重载前后都能回收", firstRelease.Released && secondRelease.Released,
     $"first={firstRelease.Released} second={secondRelease.Released}"));
+
+// 构造函数抛出时，Provider 必须回收 ALC 并交回 null；否则每次重试都泄漏一个 ALC。
+var broken = Path.Combine(pluginsRoot, "Broken");
+Directory.CreateDirectory(broken);
+File.WriteAllText(Path.Combine(broken, "manifest.json"), """
+    {
+      "name": "Broken",
+      "entry": "main.fsx",
+      "type": "hosihikari",
+      "version": "1.0.0",
+      "dependencies": [
+        { "name": "hosihikari" },
+        { "name": "hosihikari-fsharp" }
+      ],
+      "extraInfo": { "api": "2", "format_version": "1", "provider": "fsharp" }
+    }
+    """);
+File.WriteAllText(Path.Combine(broken, "main.fsx"), """
+    open Hosihikari
+
+    type BrokenPlugin() =
+        do failwith "constructor"
+        interface IPlugin with
+            member this.OnLoad(context: IPluginContext) = ()
+            member this.OnEnable() = PluginHookResult.Allow()
+            member this.OnDisable() = PluginHookResult.Allow()
+            member this.OnUnload() = ()
+    """);
+for (var i = 0; i < 10; i++)
+{
+    GC.Collect();
+    GC.WaitForPendingFinalizers();
+}
+var alcBefore = AssemblyLoadContext.All.Count();
+var brokenLoaded = host.Load(broken);
+for (var i = 0; i < 10; i++)
+{
+    GC.Collect();
+    GC.WaitForPendingFinalizers();
+}
+var alcAfter = AssemblyLoadContext.All.Count();
+checks.Add(("装载失败的插件不泄漏 ALC", !brokenLoaded && alcAfter == alcBefore,
+    $"before={alcBefore} after={alcAfter} loaded={brokenLoaded}"));
+
+// 合法的子目录入口：源码在 src/ 下，依赖在包根；编译引用必须从包根找。
+var nested = Path.Combine(pluginsRoot, "Nested");
+Directory.CreateDirectory(Path.Combine(nested, "src"));
+File.Copy(
+    Path.Combine(RepoRoot(), "test", "PrivateDependency", "bin", ConfigurationName(), "net10.0", "Hosihikari.FSharp.PrivateDependency.dll"),
+    Path.Combine(nested, "Hosihikari.FSharp.PrivateDependency.dll"));
+File.WriteAllText(Path.Combine(nested, "manifest.json"), """
+    {
+      "name": "Nested",
+      "entry": "src/main.fsx",
+      "type": "hosihikari",
+      "version": "1.0.0",
+      "dependencies": [
+        { "name": "hosihikari" },
+        { "name": "hosihikari-fsharp" }
+      ],
+      "extraInfo": { "api": "2", "format_version": "1", "provider": "fsharp" }
+    }
+    """);
+File.WriteAllText(Path.Combine(nested, "src", "main.fsx"), """
+    open Hosihikari
+    open System.IO
+
+    type NestedPlugin() =
+        interface IPlugin with
+            member this.OnLoad(context: IPluginContext) =
+                File.WriteAllText(Path.Combine(context.DataDirectory, "nested.txt"), ProviderPrivateDependency.Marker.Value)
+            member this.OnEnable() = PluginHookResult.Allow()
+            member this.OnDisable() = PluginHookResult.Allow()
+            member this.OnUnload() = ()
+    """);
+var nestedLoaded = host.Load(nested);
+var nestedFile = Path.Combine(dataRoot, "Nested", "nested.txt");
+var nestedText = File.Exists(nestedFile) ? File.ReadAllText(nestedFile) : "(missing)";
+checks.Add(("子目录入口仍能引用包根依赖", nestedLoaded && nestedText == "private-dependency",
+    $"loaded={nestedLoaded} nested={nestedText}"));
+host.Unload("Nested");
 
 Console.WriteLine();
 Console.WriteLine("=== 断言 ===");

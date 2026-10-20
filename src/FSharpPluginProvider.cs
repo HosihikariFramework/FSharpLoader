@@ -63,48 +63,82 @@ public sealed class FSharpPluginProvider : IPluginProvider
             // 指令入口每次重编；其他入口缺失或校验失败时重编。
             if (Directory.Exists(cacheDirectory))
             {
-                Directory.Delete(cacheDirectory, recursive: true);
+                try
+                {
+                    Directory.Delete(cacheDirectory, recursive: true);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    context.Logger.LogError(ex, "清不掉损坏的缓存目录 {Directory}", cacheDirectory);
+                    return null;
+                }
             }
 
-            if (!Compile(entry, cacheDirectory, manifest.Name, context))
+            if (!Compile(entry, packageDirectory, cacheDirectory, manifest.Name, context))
             {
                 return null;
             }
         }
 
-        // F# 插件的依赖从它自己的目录解析；契约、框架与运行时由父上下文给。
-        CopyNeighbour(typeof(Microsoft.FSharp.Core.Unit).Assembly.Location, cacheDirectory);
-
-        var loadContext = new ScriptLoadContext(assemblyPath, cacheDirectory, packageDirectory);
-        var assembly = loadContext.LoadFromAssemblyPath(assemblyPath);
-
-        var entryType = assembly.GetTypes().FirstOrDefault(candidate =>
-            typeof(IPlugin).IsAssignableFrom(candidate)
-            && candidate is { IsAbstract: false, IsInterface: false }
-            && candidate.GetConstructor(System.Type.EmptyTypes) is not null);
-        if (entryType is null)
+        ScriptLoadContext? loadContext = null;
+        try
         {
-            context.Logger.LogError("{Assembly} 里没有实现 IPlugin 且有无参构造的类型", assemblyPath);
-            loadContext.Unload();
+            // F# 插件的依赖从它自己的目录解析；契约、框架与运行时由父上下文给。
+            CopyNeighbour(typeof(Microsoft.FSharp.Core.Unit).Assembly.Location, cacheDirectory);
+
+            loadContext = new ScriptLoadContext(assemblyPath, cacheDirectory, packageDirectory);
+            var assembly = loadContext.LoadFromAssemblyPath(assemblyPath);
+
+            var candidates = assembly.GetTypes()
+                .Where(candidate => typeof(IPlugin).IsAssignableFrom(candidate)
+                                    && candidate is { IsAbstract: false, IsInterface: false }
+                                    && candidate.GetConstructor(System.Type.EmptyTypes) is not null)
+                .ToArray();
+            if (candidates.Length != 1)
+            {
+                context.Logger.LogError(
+                    "{Assembly} 需要恰好一个实现 IPlugin 且有无参构造的类型，实际 {Count} 个",
+                    assemblyPath,
+                    candidates.Length);
+                loadContext.Unload();
+                return null;
+            }
+
+            if (Activator.CreateInstance(candidates[0]) is not IPlugin plugin)
+            {
+                context.Logger.LogError("造不出 {Type} 的实例", candidates[0].FullName);
+                loadContext.Unload();
+                return null;
+            }
+
+            return new CompiledPluginInstance(plugin, loadContext);
+        }
+        catch (Exception ex)
+        {
+            context.Logger.LogError(ex, "装载 {Name} 的产物失败", manifest.Name);
+            try
+            {
+                loadContext?.Unload();
+            }
+            catch (Exception unloadEx)
+            {
+                context.Logger.LogWarning(unloadEx, "回收 {Name} 的失败产物时抛出", manifest.Name);
+            }
+
             return null;
         }
-
-        if (Activator.CreateInstance(entryType) is not IPlugin plugin)
-        {
-            context.Logger.LogError("造不出 {Type} 的实例", entryType.FullName);
-            loadContext.Unload();
-            return null;
-        }
-
-        return new CompiledPluginInstance(plugin, loadContext);
     }
 
     /// <summary>脚本内容 + 包内自带的依赖 + 编译器版本 + 运行时版本，xxhash128 后取十六进制。</summary>
     private static string CacheKey(string script, string packageDirectory)
     {
         var hasher = new XxHash128();
+        hasher.Append(Encoding.UTF8.GetBytes("fsharp-cache-1"));
         hasher.Append(Encoding.UTF8.GetBytes(script));
         hasher.Append(Encoding.UTF8.GetBytes(typeof(FSharpChecker).Assembly.GetName().Version?.ToString() ?? "?"));
+        hasher.Append(Encoding.UTF8.GetBytes(typeof(IPlugin).Assembly.GetName().Version?.ToString() ?? "?"));
+        hasher.Append(Encoding.UTF8.GetBytes(typeof(FSharpPluginProvider).Assembly.GetName().Version?.ToString() ?? "?"));
+        hasher.Append(Encoding.UTF8.GetBytes(System.Runtime.InteropServices.RuntimeInformation.RuntimeIdentifier));
         hasher.Append(Encoding.UTF8.GetBytes(Environment.Version.ToString()));
 
         // 包内自带的依赖也参与寻址 —— 换了 dll 就该重编。
@@ -157,7 +191,7 @@ public sealed class FSharpPluginProvider : IPluginProvider
         return string.Equals(expected, actual, StringComparison.OrdinalIgnoreCase);
     }
 
-    private bool Compile(string scriptPath, string cacheDirectory, string name, IPluginContext context)
+    private bool Compile(string scriptPath, string packageDirectory, string cacheDirectory, string name, IPluginContext context)
     {
         // 编到临时目录，成功了再原子改名 —— 崩在中间不会留下半个产物。
         var staging = cacheDirectory + ".tmp";
@@ -171,7 +205,7 @@ public sealed class FSharpPluginProvider : IPluginProvider
             Directory.CreateDirectory(staging);
 
             var assemblyPath = Path.Combine(staging, name + ".dll");
-            if (!CompileTo(scriptPath, assemblyPath, context))
+            if (!CompileTo(scriptPath, packageDirectory, assemblyPath, context))
             {
                 return false;
             }
@@ -206,14 +240,14 @@ public sealed class FSharpPluginProvider : IPluginProvider
         }
     }
 
-    private bool CompileTo(string scriptPath, string assemblyPath, IPluginContext context)
+    private bool CompileTo(string scriptPath, string packageDirectory, string assemblyPath, IPluginContext context)
     {
         // 不用 GetProjectOptionsFromScript：在没有 SDK 上下文的目录里它会退到 .NET Framework
         // 的参考集（mscorlib / System.Windows.Forms）。这里直接按 SDK 的做法拼：
         // --noframework + 显式的引用清单 —— 运行时、契约，以及这个 Provider 自己的依赖
         // （FSharp.Core 等，它们随包走、不在宿主的 TPA 里）。
         // 引用 = 宿主的运行时 + 框架自己 ALC 里的那些 + **插件包里自带的依赖**。
-        var references = CollectReferences(Path.GetDirectoryName(scriptPath)!)
+        var references = CollectReferences(packageDirectory)
             .Select(path => "-r:" + path);
 
         var arguments = new[]
@@ -271,7 +305,7 @@ public sealed class FSharpPluginProvider : IPluginProvider
             {
                 Directory.Delete(sibling, recursive: true);
             }
-            catch (IOException)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
                 // 清不掉就留着 —— 它命中不了新的内容寻址，不会再被加载。
             }
