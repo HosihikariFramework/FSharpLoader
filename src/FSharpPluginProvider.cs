@@ -56,14 +56,29 @@ public sealed class FSharpPluginProvider : IPluginProvider
 
         // 内容寻址：目录名就把"脚本内容 + 编译器 + 运行时"钉死了。脚本改了就是另一个目录。
         var script = File.ReadAllText(entry);
-        var cacheDirectory = Path.Combine(context.DataDirectory, "bin", CacheKey(script, packageDirectory));
-        var assemblyPath = Path.Combine(cacheDirectory, manifest.Name + ".dll");
+        var cacheKey = CacheKey(script, packageDirectory);
+        var cacheRoot = Path.Combine(context.DataDirectory, "bin");
 
         // 指令能引入包外、递归的源码或引用；不完整的依赖键会静默运行旧代码。
         // shortcut: 含 # 的入口每次编译（注释或字符串也算）；需缓存时再接批编译一致的依赖解析。
-        if (script.Contains('#') || !IsUsable(assemblyPath))
+        var directiveEntry = script.Contains('#');
+
+        // 指令入口每次编译到独立目录：复用同一个键会让两个进程互相替换正在装载的产物。
+        var cacheDirectory = Path.Combine(
+            cacheRoot,
+            directiveEntry ? cacheKey + "-run-" + Guid.NewGuid().ToString("N") : cacheKey);
+        var assemblyPath = Path.Combine(cacheDirectory, manifest.Name + ".dll");
+
+        if (directiveEntry)
         {
-            // 指令入口每次重编；其他入口缺失或校验失败时重编。
+            if (!Compile(entry, packageDirectory, cacheDirectory, manifest.Name, context, script))
+            {
+                return null;
+            }
+        }
+        else if (!IsUsable(assemblyPath))
+        {
+            // 缺失或校验失败时重编，绝不"验不过也照跑"。
             if (Directory.Exists(cacheDirectory))
             {
                 try
@@ -358,6 +373,9 @@ public sealed class FSharpPluginProvider : IPluginProvider
     // 另一个进程可能刚发布、还没装载这份产物；只清超过保留期的目录。
     private static readonly TimeSpan CacheRetention = TimeSpan.FromHours(1);
 
+    // 含 # 的入口每次编译到独立的 -run- 目录；十分钟没有租约就可以回收。
+    private static readonly TimeSpan RunCacheRetention = TimeSpan.FromMinutes(10);
+
     /// <summary>
     /// 同一个插件只留最新那一份产物；旧目录要过保留期、且没有进程租用时才清。
     /// 清理与装载通过租约互斥，跨进程共享数据目录时不会删掉对方正在用的缓存。
@@ -380,7 +398,9 @@ public sealed class FSharpPluginProvider : IPluginProvider
 
             try
             {
-                if (now - Directory.GetLastWriteTimeUtc(sibling) < CacheRetention)
+                bool runDirectory = Path.GetFileName(sibling).Contains("-run-", StringComparison.Ordinal);
+                var retention = runDirectory ? RunCacheRetention : CacheRetention;
+                if (now - Directory.GetLastWriteTimeUtc(sibling) < retention)
                 {
                     continue;
                 }

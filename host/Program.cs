@@ -141,8 +141,21 @@ var secondRelease = host.Unload("Hello");
 checks.Add(("带 #load 的插件重载前后都能回收", firstRelease.Released && secondRelease.Released,
     $"first={firstRelease.Released} second={secondRelease.Released}"));
 
-// 跨进程清理：新产物与暂存目录留下，过期目录只有在没人租用时才删。
 var cacheRoot = Path.Combine(dataDirectory, "bin");
+
+// 含 # 的入口每次编译到独立目录；脚本不变也换目录，旧目录留给清理。
+var runDirectoriesBefore = Directory.GetDirectories(cacheRoot).ToHashSet(StringComparer.OrdinalIgnoreCase);
+var directiveReload = host.Load(scriptDirectory);
+Thread.Sleep(50);
+var runDirectoriesAfter = Directory.GetDirectories(cacheRoot);
+checks.Add(("含 # 的入口重载使用新的缓存目录",
+    directiveReload
+    && runDirectoriesAfter.Length > runDirectoriesBefore.Count
+    && runDirectoriesBefore.All(Directory.Exists),
+    $"{runDirectoriesBefore.Count} → {runDirectoriesAfter.Length}"));
+host.Unload("Hello");
+
+// 跨进程清理：新产物与暂存目录留下，过期目录只有在没人租用时才删。
 var freshPeer = Path.Combine(cacheRoot, "peer-fresh");
 var stalePeer = Path.Combine(cacheRoot, "peer-stale");
 var leasedPeer = Path.Combine(cacheRoot, "peer-leased");
