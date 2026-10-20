@@ -141,6 +141,44 @@ var secondRelease = host.Unload("Hello");
 checks.Add(("带 #load 的插件重载前后都能回收", firstRelease.Released && secondRelease.Released,
     $"first={firstRelease.Released} second={secondRelease.Released}"));
 
+// 跨进程清理：新产物与暂存目录留下，过期目录只有在没人租用时才删。
+var cacheRoot = Path.Combine(dataDirectory, "bin");
+var freshPeer = Path.Combine(cacheRoot, "peer-fresh");
+var stalePeer = Path.Combine(cacheRoot, "peer-stale");
+var leasedPeer = Path.Combine(cacheRoot, "peer-leased");
+var freshStaging = Path.Combine(cacheRoot, "peer-live.tmp-1");
+var staleStaging = Path.Combine(cacheRoot, "peer-dead.tmp-2");
+foreach (var directory in new[] { freshPeer, stalePeer, leasedPeer, freshStaging, staleStaging })
+{
+    Directory.CreateDirectory(directory);
+    File.WriteAllText(Path.Combine(directory, "marker"), "x");
+}
+var old = DateTime.UtcNow - TimeSpan.FromHours(2);
+Directory.SetLastWriteTimeUtc(stalePeer, old);
+Directory.SetLastWriteTimeUtc(leasedPeer, old);
+Directory.SetLastWriteTimeUtc(staleStaging, old);
+using (var peerLease = new FileStream(
+           Path.Combine(cacheRoot, "peer-leased.lease"),
+           FileMode.OpenOrCreate,
+           FileAccess.ReadWrite,
+           FileShare.ReadWrite))
+{
+    File.AppendAllText(scriptPath, "\n// cache-prune-probe\n");
+    var pruned = host.Load(scriptDirectory);
+    checks.Add((
+        "跨进程缓存清理保留新产物、暂存与租约",
+        pruned
+        && Directory.Exists(freshPeer)
+        && !Directory.Exists(stalePeer)
+        && Directory.Exists(leasedPeer)
+        && Directory.Exists(freshStaging)
+        && !Directory.Exists(staleStaging),
+        $"fresh={Directory.Exists(freshPeer)} stale={Directory.Exists(stalePeer)} "
+        + $"leased={Directory.Exists(leasedPeer)} liveTmp={Directory.Exists(freshStaging)} "
+        + $"deadTmp={Directory.Exists(staleStaging)}"));
+}
+host.Unload("Hello");
+
 // 构造函数抛出时，Provider 必须回收 ALC 并交回 null；否则每次重试都泄漏一个 ALC。
 var broken = Path.Combine(pluginsRoot, "Broken");
 Directory.CreateDirectory(broken);
