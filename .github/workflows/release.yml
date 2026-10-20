@@ -90,4 +90,4 @@ jobs:
           files: provider/artifacts/*.zip
           body: |
             See the release notes:
-            https://github.com/HosihikariFramework/Design/blob/main/docs/release-notes/fsharp-provider-${{ github.ref_name }}.md
+            https://hosihikariframework.github.io/releases/
