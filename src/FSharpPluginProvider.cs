@@ -77,7 +77,7 @@ public sealed class FSharpPluginProvider : IPluginProvider
                 }
             }
 
-            if (!Compile(entry, packageDirectory, cacheDirectory, manifest.Name, context))
+            if (!Compile(entry, packageDirectory, cacheDirectory, manifest.Name, context, script))
             {
                 return null;
             }
@@ -136,7 +136,7 @@ public sealed class FSharpPluginProvider : IPluginProvider
     private static string CacheKey(string script, string packageDirectory)
     {
         var hasher = new XxHash128();
-        hasher.Append(Encoding.UTF8.GetBytes("fsharp-cache-1"));
+        hasher.Append(Encoding.UTF8.GetBytes("fsharp-cache-2"));
         hasher.Append(Encoding.UTF8.GetBytes(script));
         hasher.Append(Encoding.UTF8.GetBytes(typeof(FSharpChecker).Assembly.GetName().Version?.ToString() ?? "?"));
         hasher.Append(Encoding.UTF8.GetBytes(typeof(IPlugin).Assembly.GetName().Version?.ToString() ?? "?"));
@@ -180,31 +180,42 @@ public sealed class FSharpPluginProvider : IPluginProvider
         FrameworkContext?.Assemblies.Any(loaded => string.Equals(loaded.GetName().Name, name, StringComparison.Ordinal))
         ?? false;
 
-    /// <summary>产物在、且校验和对得上才算能用。</summary>
+    /// <summary>产物与 PDB 都在、且两行校验和都对得上才算能用。</summary>
     private static bool IsUsable(string assemblyPath)
     {
         var checksumPath = assemblyPath + ChecksumSuffix;
-        if (!File.Exists(assemblyPath) || !File.Exists(checksumPath))
+        var pdbPath = Path.ChangeExtension(assemblyPath, ".pdb");
+        if (!File.Exists(assemblyPath) || !File.Exists(pdbPath) || !File.Exists(checksumPath))
         {
             return false;
         }
 
-        var expected = File.ReadAllText(checksumPath).Trim();
-        var actual = Convert.ToHexStringLower(XxHash128.Hash(File.ReadAllBytes(assemblyPath)));
-        return string.Equals(expected, actual, StringComparison.OrdinalIgnoreCase);
+        var expected = File.ReadAllLines(checksumPath);
+        if (expected.Length != 2)
+        {
+            return false;
+        }
+
+        var assemblyHash = Convert.ToHexStringLower(XxHash128.Hash(File.ReadAllBytes(assemblyPath)));
+        var pdbHash = Convert.ToHexStringLower(XxHash128.Hash(File.ReadAllBytes(pdbPath)));
+        return string.Equals(expected[0].Trim(), assemblyHash, StringComparison.OrdinalIgnoreCase)
+               && string.Equals(expected[1].Trim(), pdbHash, StringComparison.OrdinalIgnoreCase);
     }
 
-    private bool Compile(string scriptPath, string packageDirectory, string cacheDirectory, string name, IPluginContext context)
+    private bool Compile(
+        string scriptPath,
+        string packageDirectory,
+        string cacheDirectory,
+        string name,
+        IPluginContext context,
+        string script)
     {
-        // 编到临时目录，成功了再原子改名 —— 崩在中间不会留下半个产物。
-        var staging = cacheDirectory + ".tmp";
+        // 编到唯一的临时目录，成功了再原子改名 —— 崩在中间不会留下半个产物，
+        // 两个进程同时编同一份内容也不会踩同一个 .tmp。
+        var staging = cacheDirectory + ".tmp-" + Guid.NewGuid().ToString("N");
 
         try
         {
-            if (Directory.Exists(staging))
-            {
-                Directory.Delete(staging, recursive: true);
-            }
             Directory.CreateDirectory(staging);
 
             var assemblyPath = Path.Combine(staging, name + ".dll");
@@ -213,11 +224,30 @@ public sealed class FSharpPluginProvider : IPluginProvider
                 return false;
             }
 
-            var checksum = Convert.ToHexStringLower(XxHash128.Hash(File.ReadAllBytes(assemblyPath)));
+            // 编译器按路径读文件；如果入口在键计算之后被换掉，宁可这次失败，也不要把 B 存到 A 的键下。
+            if (!string.Equals(File.ReadAllText(scriptPath), script, StringComparison.Ordinal))
+            {
+                context.Logger.LogWarning("{Script} 在编译期间发生变化，丢弃本次产物", scriptPath);
+                return false;
+            }
+
+            var pdbPath = Path.ChangeExtension(assemblyPath, ".pdb");
+            var checksum = Convert.ToHexStringLower(XxHash128.Hash(File.ReadAllBytes(assemblyPath)))
+                           + Environment.NewLine
+                           + Convert.ToHexStringLower(XxHash128.Hash(File.ReadAllBytes(pdbPath)));
             File.WriteAllText(assemblyPath + ChecksumSuffix, checksum);
 
             Directory.CreateDirectory(Path.GetDirectoryName(cacheDirectory)!);
-            Directory.Move(staging, cacheDirectory);
+            try
+            {
+                Directory.Move(staging, cacheDirectory);
+            }
+            catch (IOException) when (Directory.Exists(cacheDirectory) && IsUsable(Path.Combine(cacheDirectory, name + ".dll")))
+            {
+                // 另一个进程已经先落好了同一份内容。
+                return true;
+            }
+
             PruneSiblings(cacheDirectory);
             return true;
         }

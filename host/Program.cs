@@ -113,6 +113,14 @@ var recovered = host.Load(Path.Combine(pluginsRoot, "Hello"));
 var repaired = artifact is not null && IsChecksumValid(artifact);
 checks.Add(("产物被改坏后重编并通过校验", recovered && repaired, repaired ? "已重编" : "校验仍不符"));
 
+if (artifact is not null)
+{
+    File.AppendAllText(Path.ChangeExtension(artifact, ".pdb"), "// tampered");
+}
+host.Unload("Hello");
+var recoveredPdb = host.Load(Path.Combine(pluginsRoot, "Hello"));
+var pdbRepaired = artifact is not null && IsChecksumValid(artifact);
+checks.Add(("PDB 被改坏后也重编", recoveredPdb && pdbRepaired, pdbRepaired ? "已重编" : "校验仍不符"));
 host.Unload("Hello");
 var scriptDirectory = Path.Combine(pluginsRoot, "Hello");
 var scriptPath = Path.Combine(scriptDirectory, "main.fsx");
@@ -234,14 +242,22 @@ string? Artifact()
 bool IsChecksumValid(string path)
 {
     var checksumPath = path + ".xxh128";
-    if (!File.Exists(path) || !File.Exists(checksumPath))
+    var pdbPath = Path.ChangeExtension(path, ".pdb");
+    if (!File.Exists(path) || !File.Exists(pdbPath) || !File.Exists(checksumPath))
     {
         return false;
     }
 
-    var expected = File.ReadAllText(checksumPath).Trim();
-    var actual = Convert.ToHexStringLower(System.IO.Hashing.XxHash128.Hash(File.ReadAllBytes(path)));
-    return string.Equals(expected, actual, StringComparison.OrdinalIgnoreCase);
+    var expected = File.ReadAllLines(checksumPath);
+    if (expected.Length != 2)
+    {
+        return false;
+    }
+
+    var assemblyHash = Convert.ToHexStringLower(System.IO.Hashing.XxHash128.Hash(File.ReadAllBytes(path)));
+    var pdbHash = Convert.ToHexStringLower(System.IO.Hashing.XxHash128.Hash(File.ReadAllBytes(pdbPath)));
+    return string.Equals(expected[0].Trim(), assemblyHash, StringComparison.OrdinalIgnoreCase)
+           && string.Equals(expected[1].Trim(), pdbHash, StringComparison.OrdinalIgnoreCase);
 }
 
 string Read(string file)
