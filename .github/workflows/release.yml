@@ -89,5 +89,5 @@ jobs:
         with:
           files: provider/artifacts/*.zip
           body: |
-            See the framework release notes:
-            https://github.com/HosihikariFramework/Design/blob/main/docs/release-notes/first-release.md
+            See the release notes:
+            https://github.com/HosihikariFramework/Design/blob/main/docs/release-notes/fsharp-provider-${{ github.ref_name }}.md
