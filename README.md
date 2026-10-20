@@ -14,6 +14,11 @@ to IL before the plugin runs, and the provider loads that IL into a collectible 
 in-process; other languages go through the generic out-of-process provider
 (`Hosihikari.PluginProvider.Rpc`, ADR-0031).
 
+## Templates
+
+Start from [FSharpPluginTemplate](https://github.com/HosihikariFramework/FSharpPluginTemplate): copy
+it into `plugins/`, rename the plugin, and restart.
+
 ## What a plugin package looks like
 
 ```
