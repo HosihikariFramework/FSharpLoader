@@ -267,7 +267,11 @@ public sealed class FSharpPluginProvider : IPluginProvider
             .ToArray();
 
         // 返回 (diagnostics, exn option)：异常项为 None 就是编成功了。
-        var (diagnostics, failure) = FSharpAsync.RunSynchronously(_checker.Compile(arguments, null), null, null);
+        // 编译占着宿主的加载锁； runaway 的类型推导不能把整台服务器一起挂住。
+        var (diagnostics, failure) = FSharpAsync.RunSynchronously(
+            _checker.Compile(arguments, null),
+            Microsoft.FSharp.Core.FSharpOption<int>.Some(30_000),
+            null);
         if (failure is null)
         {
             return true;
