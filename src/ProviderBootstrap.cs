@@ -13,7 +13,14 @@ namespace Hosihikari.PluginProvider.FSharp;
 /// </summary>
 public sealed class ProviderBootstrap : IPlugin
 {
-    public void OnLoad(IPluginContext context) => context.RegisterProvider(new FSharpPluginProvider());
+    public void OnLoad(IPluginContext context)
+    {
+        // 重复登记说明另一个包已经接管 fsharp；本包留在场上只会空转。
+        if (!context.TryRegisterProvider(new FSharpPluginProvider()))
+        {
+            throw new InvalidOperationException("fsharp 类型的 Provider 已被占用");
+        }
+    }
 
     public PluginHookResult OnEnable() => PluginHookResult.Allow();
 
