@@ -22,7 +22,7 @@
   </ItemGroup>
 
   <ItemGroup Condition="!Exists('../../Hosihikari.Abstractions/src/Hosihikari.Abstractions.csproj')">
-    <PackageReference Include="Hosihikari.Abstractions" Version="[0.7.0]" />
+    <PackageReference Include="Hosihikari.Abstractions" Version="[0.7.1]" />
   </ItemGroup>
 
 </Project>
