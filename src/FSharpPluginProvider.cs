@@ -188,6 +188,7 @@ public sealed class FSharpPluginProvider : IPluginProvider
         Regular,
         Verbatim,
         Triple,
+        QuotedIdentifier,
     }
 
     private static readonly StringComparer PathComparer =
@@ -263,7 +264,14 @@ public sealed class FSharpPluginProvider : IPluginProvider
             cacheable = false;
         }
 
-        foreach (var directive in DirectiveLines(scriptText))
+        var directives = DirectiveLines(scriptText, out var complete);
+        if (!complete)
+        {
+            // 扫到文件尾还停在注释或字符串里：键可能不完整，宁可每次重编。
+            cacheable = false;
+        }
+
+        foreach (var directive in directives)
         {
             var keywordEnd = 0;
             while (keywordEnd < directive.Length && char.IsLetter(directive[keywordEnd]))
@@ -376,10 +384,12 @@ public sealed class FSharpPluginProvider : IPluginProvider
     /// <summary>
     /// 逐行找出真正的指令：跳过行注释、嵌套块注释与多行字符串，
     /// 也允许块注释与指令在同一行（<c>(* note *) #load "x.fsx"</c>）。
+    /// 注释里的字符串同样保护 <c>(*</c> / <c>*)</c>；<c>(*)</c> 是运算符，不是注释。
     /// 返回去掉注释后的 <c>#</c> 之后的内容。
     /// </summary>
-    private static IEnumerable<string> DirectiveLines(string script)
+    private static List<string> DirectiveLines(string script, out bool complete)
     {
+        var directives = new List<string>();
         var commentDepth = 0;
         var stringKind = StringKind.None;
 
@@ -393,6 +403,130 @@ public sealed class FSharpPluginProvider : IPluginProvider
 
             while (index < line.Length)
             {
+                // 字符串优先：注释里的字符串也要跳过其中的 (* / *)。
+                if (stringKind != StringKind.None)
+                {
+                    var keep = inDirective && commentDepth == 0;
+                    switch (stringKind)
+                    {
+                        case StringKind.Triple:
+                            if (line.AsSpan(index).StartsWith("\"\"\"", StringComparison.Ordinal))
+                            {
+                                stringKind = StringKind.None;
+                                if (keep)
+                                {
+                                    rest.Append("\"\"\"");
+                                }
+
+                                index += 3;
+                            }
+                            else
+                            {
+                                if (keep)
+                                {
+                                    rest.Append(line[index]);
+                                }
+
+                                index++;
+                            }
+
+                            break;
+
+                        case StringKind.QuotedIdentifier:
+                            if (line.AsSpan(index).StartsWith("``", StringComparison.Ordinal))
+                            {
+                                stringKind = StringKind.None;
+                                if (keep)
+                                {
+                                    rest.Append("``");
+                                }
+
+                                index += 2;
+                            }
+                            else
+                            {
+                                if (keep)
+                                {
+                                    rest.Append(line[index]);
+                                }
+
+                                index++;
+                            }
+
+                            break;
+
+                        case StringKind.Verbatim:
+                            if (line[index] == '"')
+                            {
+                                if (index + 1 < line.Length && line[index + 1] == '"')
+                                {
+                                    if (keep)
+                                    {
+                                        rest.Append("\"\"");
+                                    }
+
+                                    index += 2;
+                                }
+                                else
+                                {
+                                    stringKind = StringKind.None;
+                                    if (keep)
+                                    {
+                                        rest.Append('"');
+                                    }
+
+                                    index++;
+                                }
+                            }
+                            else
+                            {
+                                if (keep)
+                                {
+                                    rest.Append(line[index]);
+                                }
+
+                                index++;
+                            }
+
+                            break;
+
+                        case StringKind.Regular:
+                            if (line[index] == '\\' && index + 1 < line.Length)
+                            {
+                                if (keep)
+                                {
+                                    rest.Append(line[index]);
+                                    rest.Append(line[index + 1]);
+                                }
+
+                                index += 2;
+                            }
+                            else if (line[index] == '"')
+                            {
+                                stringKind = StringKind.None;
+                                if (keep)
+                                {
+                                    rest.Append('"');
+                                }
+
+                                index++;
+                            }
+                            else
+                            {
+                                if (keep)
+                                {
+                                    rest.Append(line[index]);
+                                }
+
+                                index++;
+                            }
+
+                            break;
+                    }
+
+                    continue;
+                }
+
                 if (commentDepth > 0)
                 {
                     if (line.AsSpan(index).StartsWith("(*", StringComparison.Ordinal))
@@ -413,6 +547,12 @@ public sealed class FSharpPluginProvider : IPluginProvider
                         commentDepth--;
                         index += 2;
                     }
+                    else if (TryStartString(line, index, out var commentString, out var commentLength))
+                    {
+                        // 注释里的字符串同样保护 (* / *)；内容不属于指令。
+                        stringKind = commentString;
+                        index += commentLength;
+                    }
                     else
                     {
                         index++;
@@ -421,109 +561,11 @@ public sealed class FSharpPluginProvider : IPluginProvider
                     continue;
                 }
 
-                if (stringKind == StringKind.Triple)
-                {
-                    if (line.AsSpan(index).StartsWith("\"\"\"", StringComparison.Ordinal))
-                    {
-                        stringKind = StringKind.None;
-                        if (inDirective)
-                        {
-                            rest.Append("\"\"\"");
-                        }
-
-                        index += 3;
-                    }
-                    else
-                    {
-                        if (inDirective)
-                        {
-                            rest.Append(line[index]);
-                        }
-
-                        index++;
-                    }
-
-                    continue;
-                }
-
-                if (stringKind == StringKind.Verbatim)
-                {
-                    if (line[index] == '"')
-                    {
-                        if (index + 1 < line.Length && line[index + 1] == '"')
-                        {
-                            if (inDirective)
-                            {
-                                rest.Append("\"\"");
-                            }
-
-                            index += 2;
-                        }
-                        else
-                        {
-                            stringKind = StringKind.None;
-                            if (inDirective)
-                            {
-                                rest.Append('"');
-                            }
-
-                            index++;
-                        }
-                    }
-                    else
-                    {
-                        if (inDirective)
-                        {
-                            rest.Append(line[index]);
-                        }
-
-                        index++;
-                    }
-
-                    continue;
-                }
-
-                if (stringKind == StringKind.Regular)
-                {
-                    if (line[index] == '\\' && index + 1 < line.Length)
-                    {
-                        if (inDirective)
-                        {
-                            rest.Append(line[index]);
-                            rest.Append(line[index + 1]);
-                        }
-
-                        index += 2;
-                    }
-                    else if (line[index] == '"')
-                    {
-                        stringKind = StringKind.None;
-                        if (inDirective)
-                        {
-                            rest.Append('"');
-                        }
-
-                        index++;
-                    }
-                    else
-                    {
-                        if (inDirective)
-                        {
-                            rest.Append(line[index]);
-                        }
-
-                        index++;
-                    }
-
-                    continue;
-                }
-
-                var current = line[index];
-                if (char.IsWhiteSpace(current))
+                if (char.IsWhiteSpace(line[index]))
                 {
                     if (inDirective)
                     {
-                        rest.Append(current);
+                        rest.Append(line[index]);
                     }
 
                     index++;
@@ -557,89 +599,33 @@ public sealed class FSharpPluginProvider : IPluginProvider
                     continue;
                 }
 
-                if (current == '"')
+                if (TryStartString(line, index, out var kind, out var length))
                 {
                     codeSeen = true;
-                    if (line.AsSpan(index).StartsWith("\"\"\"", StringComparison.Ordinal))
+                    stringKind = kind;
+                    if (inDirective)
                     {
-                        stringKind = StringKind.Triple;
-                        if (inDirective)
-                        {
-                            rest.Append("\"\"\"");
-                        }
-
-                        index += 3;
-                    }
-                    else
-                    {
-                        stringKind = StringKind.Regular;
-                        if (inDirective)
-                        {
-                            rest.Append('"');
-                        }
-
-                        index++;
+                        rest.Append(line.AsSpan(index, length));
                     }
 
+                    index += length;
                     continue;
                 }
 
-                if (current == '@' && index + 1 < line.Length && line[index + 1] == '"')
+                if (line.AsSpan(index).StartsWith("``", StringComparison.Ordinal))
                 {
                     codeSeen = true;
-                    stringKind = StringKind.Verbatim;
+                    stringKind = StringKind.QuotedIdentifier;
                     if (inDirective)
                     {
-                        rest.Append("@\"");
+                        rest.Append("``");
                     }
 
                     index += 2;
                     continue;
                 }
 
-                if (current == '$' && index + 1 < line.Length)
-                {
-                    if (line.AsSpan(index + 1).StartsWith("\"\"\"", StringComparison.Ordinal))
-                    {
-                        codeSeen = true;
-                        stringKind = StringKind.Triple;
-                        if (inDirective)
-                        {
-                            rest.Append("$\"\"\"");
-                        }
-
-                        index += 4;
-                        continue;
-                    }
-
-                    if (line[index + 1] == '"')
-                    {
-                        codeSeen = true;
-                        stringKind = StringKind.Regular;
-                        if (inDirective)
-                        {
-                            rest.Append("$\"");
-                        }
-
-                        index += 2;
-                        continue;
-                    }
-
-                    if (index + 2 < line.Length && line[index + 1] == '@' && line[index + 2] == '"')
-                    {
-                        codeSeen = true;
-                        stringKind = StringKind.Verbatim;
-                        if (inDirective)
-                        {
-                            rest.Append("$@\"");
-                        }
-
-                        index += 3;
-                        continue;
-                    }
-                }
-
-                if (current == '#' && !codeSeen && !inDirective)
+                if (line[index] == '#' && !codeSeen && !inDirective)
                 {
                     inDirective = true;
                     index++;
@@ -649,23 +635,66 @@ public sealed class FSharpPluginProvider : IPluginProvider
                 codeSeen = true;
                 if (inDirective)
                 {
-                    rest.Append(current);
+                    rest.Append(line[index]);
                 }
 
                 index++;
             }
 
-            // 普通字符串不跨行；未闭合的脚本本来也编译不过。
-            if (stringKind == StringKind.Regular)
+            // 普通字符串与引号标识符都不跨行；未闭合的脚本本来也编译不过。
+            if (stringKind is StringKind.Regular or StringKind.QuotedIdentifier)
             {
                 stringKind = StringKind.None;
             }
 
             if (inDirective)
             {
-                yield return rest.ToString();
+                directives.Add(rest.ToString());
             }
         }
+
+        complete = commentDepth == 0 && stringKind == StringKind.None;
+        return directives;
+    }
+
+    private static bool TryStartString(string line, int index, out StringKind kind, out int length)
+    {
+        kind = StringKind.None;
+        length = 0;
+
+        if (line.AsSpan(index).StartsWith("$\"\"\"", StringComparison.Ordinal))
+        {
+            kind = StringKind.Triple;
+            length = 4;
+        }
+        else if (line.AsSpan(index).StartsWith("$@\"", StringComparison.Ordinal)
+                 || line.AsSpan(index).StartsWith("@$\"", StringComparison.Ordinal))
+        {
+            kind = StringKind.Verbatim;
+            length = 3;
+        }
+        else if (line.AsSpan(index).StartsWith("$\"", StringComparison.Ordinal))
+        {
+            kind = StringKind.Regular;
+            length = 2;
+        }
+        else if (line.AsSpan(index).StartsWith("\"\"\"", StringComparison.Ordinal))
+        {
+            kind = StringKind.Triple;
+            length = 3;
+        }
+        else if (line.AsSpan(index).StartsWith("@\"", StringComparison.Ordinal))
+        {
+            kind = StringKind.Verbatim;
+            length = 2;
+        }
+        else if (line[index] == '"')
+        {
+            kind = StringKind.Regular;
+            length = 1;
+        }
+
+        return kind != StringKind.None;
     }
 
     private static IReadOnlyList<string> QuotedArguments(string rest)

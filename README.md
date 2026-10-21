@@ -108,7 +108,8 @@ It also uses a private fixture DLL that the host does not reference, and checks 
 caching is covered as well: helpers and multi-file `#load` participate in the cache key, an
 unchanged directive entry hits the cache, and an `#I` entry rotates directories. A
 comment-prefixed directive is still recognized, `#load` text inside a multiline string is treated
-as text, and the `(*)` operator is not mistaken for a comment.
+as text, and the `(*)` operator is not mistaken for a comment. Strings inside comments and quoted
+identifiers containing `(*` are covered too.
 
 ## How it reaches the host process
 

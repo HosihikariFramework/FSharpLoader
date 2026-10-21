@@ -355,6 +355,90 @@ checks.Add(("(*) 之后的 #load 依赖改动后重编",
     operatorReloaded && operatorSecond == "second",
     $"{operatorFirst} → {operatorSecond}"));
 
+// 注释里的字符串也保护 (*；不能把它当成嵌套注释而吞掉后面的 #load。
+var commentString = Path.Combine(pluginsRoot, "CommentString");
+Directory.CreateDirectory(commentString);
+File.WriteAllText(Path.Combine(commentString, "manifest.json"), """
+    {
+      "name": "CommentString",
+      "entry": "main.fsx",
+      "type": "hosihikari",
+      "version": "1.0.0",
+      "dependencies": [
+        { "name": "hosihikari" },
+        { "name": "hosihikari-fsharp" }
+      ],
+      "extraInfo": { "api": "2", "format_version": "1", "provider": "fsharp" }
+    }
+    """);
+File.WriteAllText(Path.Combine(commentString, "main.fsx"), """
+    (* "(*" *)
+    #load "plugin.fsx"
+    """);
+File.WriteAllText(Path.Combine(commentString, "plugin.fsx"),
+    PluginSource("CommentStringPlugin", "comment-string.txt", "first"));
+var commentStringPath = Path.Combine(dataRoot, "CommentString", "comment-string.txt");
+var commentStringLoaded = host.Load(commentString);
+var commentStringFirst = File.Exists(commentStringPath) ? File.ReadAllText(commentStringPath) : "(missing)";
+host.Unload("CommentString");
+var commentStringCacheBefore = Directory.GetDirectories(cacheRoot).ToHashSet(StringComparer.OrdinalIgnoreCase);
+var commentStringAgain = host.Load(commentString);
+var commentStringCacheAfter = Directory.GetDirectories(cacheRoot).ToHashSet(StringComparer.OrdinalIgnoreCase);
+host.Unload("CommentString");
+checks.Add(("注释字符串里的 (* 不吞掉后续 #load，入口命中缓存",
+    commentStringLoaded && commentStringFirst == "first" && commentStringAgain
+    && commentStringCacheAfter.SetEquals(commentStringCacheBefore),
+    $"{commentStringFirst}, {commentStringCacheBefore.Count} → {commentStringCacheAfter.Count}"));
+File.WriteAllText(Path.Combine(commentString, "plugin.fsx"),
+    PluginSource("CommentStringPlugin", "comment-string.txt", "second"));
+var commentStringReloaded = host.Load(commentString);
+var commentStringSecond = File.Exists(commentStringPath) ? File.ReadAllText(commentStringPath) : "(missing)";
+host.Unload("CommentString");
+checks.Add(("注释字符串之后的 #load 依赖改动后重编",
+    commentStringReloaded && commentStringSecond == "second",
+    $"{commentStringFirst} → {commentStringSecond}"));
+
+// 引号标识符里的 (* 也只是标识符文本，不是注释。
+var quoted = Path.Combine(pluginsRoot, "Quoted");
+Directory.CreateDirectory(quoted);
+File.WriteAllText(Path.Combine(quoted, "manifest.json"), """
+    {
+      "name": "Quoted",
+      "entry": "main.fsx",
+      "type": "hosihikari",
+      "version": "1.0.0",
+      "dependencies": [
+        { "name": "hosihikari" },
+        { "name": "hosihikari-fsharp" }
+      ],
+      "extraInfo": { "api": "2", "format_version": "1", "provider": "fsharp" }
+    }
+    """);
+File.WriteAllText(Path.Combine(quoted, "main.fsx"), """
+    let ``x(*y`` = 1
+    #load "plugin.fsx"
+    """);
+File.WriteAllText(Path.Combine(quoted, "plugin.fsx"), PluginSource("QuotedPlugin", "quoted.txt", "first"));
+var quotedPath = Path.Combine(dataRoot, "Quoted", "quoted.txt");
+var quotedLoaded = host.Load(quoted);
+var quotedFirst = File.Exists(quotedPath) ? File.ReadAllText(quotedPath) : "(missing)";
+host.Unload("Quoted");
+var quotedCacheBefore = Directory.GetDirectories(cacheRoot).ToHashSet(StringComparer.OrdinalIgnoreCase);
+var quotedAgain = host.Load(quoted);
+var quotedCacheAfter = Directory.GetDirectories(cacheRoot).ToHashSet(StringComparer.OrdinalIgnoreCase);
+host.Unload("Quoted");
+checks.Add(("引号标识符里的 (* 不吞掉后续 #load，入口命中缓存",
+    quotedLoaded && quotedFirst == "first" && quotedAgain
+    && quotedCacheAfter.SetEquals(quotedCacheBefore),
+    $"{quotedFirst}, {quotedCacheBefore.Count} → {quotedCacheAfter.Count}"));
+File.WriteAllText(Path.Combine(quoted, "plugin.fsx"), PluginSource("QuotedPlugin", "quoted.txt", "second"));
+var quotedReloaded = host.Load(quoted);
+var quotedSecond = File.Exists(quotedPath) ? File.ReadAllText(quotedPath) : "(missing)";
+host.Unload("Quoted");
+checks.Add(("引号标识符之后的 #load 依赖改动后重编",
+    quotedReloaded && quotedSecond == "second",
+    $"{quotedFirst} → {quotedSecond}"));
+
 // 跨进程清理：新产物与暂存目录留下，过期目录只有在没人租用时才删。
 var freshPeer = Path.Combine(cacheRoot, "peer-fresh");
 var stalePeer = Path.Combine(cacheRoot, "peer-stale");
