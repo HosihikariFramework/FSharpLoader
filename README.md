@@ -107,8 +107,8 @@ It also uses a private fixture DLL that the host does not reference, and checks 
 `#load` helper changes the next load while both loaded instances can still be collected. Directive
 caching is covered as well: helpers and multi-file `#load` participate in the cache key, an
 unchanged directive entry hits the cache, and an `#I` entry rotates directories. A
-comment-prefixed directive is still recognized, and `#load` text inside a multiline string is
-treated as text.
+comment-prefixed directive is still recognized, `#load` text inside a multiline string is treated
+as text, and the `(*)` operator is not mistaken for a comment.
 
 ## How it reaches the host process
 

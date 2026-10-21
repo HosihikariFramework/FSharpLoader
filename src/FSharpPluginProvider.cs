@@ -397,8 +397,16 @@ public sealed class FSharpPluginProvider : IPluginProvider
                 {
                     if (line.AsSpan(index).StartsWith("(*", StringComparison.Ordinal))
                     {
-                        commentDepth++;
-                        index += 2;
+                        // `(*)` 是乘法运算符，不是嵌套注释的开头（F# 自己也这么认）。
+                        if (index + 2 < line.Length && line[index + 2] == ')')
+                        {
+                            index += 3;
+                        }
+                        else
+                        {
+                            commentDepth++;
+                            index += 2;
+                        }
                     }
                     else if (line.AsSpan(index).StartsWith("*)", StringComparison.Ordinal))
                     {
@@ -529,8 +537,23 @@ public sealed class FSharpPluginProvider : IPluginProvider
 
                 if (line.AsSpan(index).StartsWith("(*", StringComparison.Ordinal))
                 {
-                    commentDepth = 1;
-                    index += 2;
+                    // `let multiply = (*)`：这是运算符，不是未闭合注释。
+                    if (index + 2 < line.Length && line[index + 2] == ')')
+                    {
+                        codeSeen = true;
+                        if (inDirective)
+                        {
+                            rest.Append("(*)");
+                        }
+
+                        index += 3;
+                    }
+                    else
+                    {
+                        commentDepth = 1;
+                        index += 2;
+                    }
+
                     continue;
                 }
 

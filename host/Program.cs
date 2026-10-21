@@ -313,6 +313,48 @@ checks.Add(("字符串之后的真 #load 仍跟踪依赖",
     stringyReloaded && stringySecond == "second",
     $"{stringyFirst} → {stringySecond}"));
 
+// `(*)` 是乘法运算符：不能把后面的 #load 吞进“未闭合注释”。
+var operatorDir = Path.Combine(pluginsRoot, "Operator");
+Directory.CreateDirectory(operatorDir);
+File.WriteAllText(Path.Combine(operatorDir, "manifest.json"), """
+    {
+      "name": "Operator",
+      "entry": "main.fsx",
+      "type": "hosihikari",
+      "version": "1.0.0",
+      "dependencies": [
+        { "name": "hosihikari" },
+        { "name": "hosihikari-fsharp" }
+      ],
+      "extraInfo": { "api": "2", "format_version": "1", "provider": "fsharp" }
+    }
+    """);
+File.WriteAllText(Path.Combine(operatorDir, "main.fsx"), """
+    (* the (*) operator *)
+    let multiply = (*)
+    #load "plugin.fsx"
+    """);
+File.WriteAllText(Path.Combine(operatorDir, "plugin.fsx"), PluginSource("OperatorPlugin", "operator.txt", "first"));
+var operatorPath = Path.Combine(dataRoot, "Operator", "operator.txt");
+var operatorLoaded = host.Load(operatorDir);
+var operatorFirst = File.Exists(operatorPath) ? File.ReadAllText(operatorPath) : "(missing)";
+host.Unload("Operator");
+var operatorCacheBefore = Directory.GetDirectories(cacheRoot).ToHashSet(StringComparer.OrdinalIgnoreCase);
+var operatorAgain = host.Load(operatorDir);
+var operatorCacheAfter = Directory.GetDirectories(cacheRoot).ToHashSet(StringComparer.OrdinalIgnoreCase);
+host.Unload("Operator");
+checks.Add(("(*) 运算符之后的 #load 命中缓存",
+    operatorLoaded && operatorFirst == "first" && operatorAgain
+    && operatorCacheAfter.SetEquals(operatorCacheBefore),
+    $"{operatorFirst}, {operatorCacheBefore.Count} → {operatorCacheAfter.Count}"));
+File.WriteAllText(Path.Combine(operatorDir, "plugin.fsx"), PluginSource("OperatorPlugin", "operator.txt", "second"));
+var operatorReloaded = host.Load(operatorDir);
+var operatorSecond = File.Exists(operatorPath) ? File.ReadAllText(operatorPath) : "(missing)";
+host.Unload("Operator");
+checks.Add(("(*) 之后的 #load 依赖改动后重编",
+    operatorReloaded && operatorSecond == "second",
+    $"{operatorFirst} → {operatorSecond}"));
+
 // 跨进程清理：新产物与暂存目录留下，过期目录只有在没人租用时才删。
 var freshPeer = Path.Combine(cacheRoot, "peer-fresh");
 var stalePeer = Path.Combine(cacheRoot, "peer-stale");
