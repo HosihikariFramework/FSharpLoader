@@ -129,7 +129,7 @@ declare the dependency, and the dependency graph orders the loader first:
 ## Packaging
 
 ```
-pwsh ./pack.ps1 -Version 0.1.5 -OutputRoot artifacts
+pwsh ./pack.ps1 -Version 1.0.0 -OutputRoot artifacts
 ```
 
 It assembles the loader DLL, its private dependencies and the manifest into
@@ -140,7 +140,7 @@ The script invokes the core packager (`Hosihikari.PluginManager/tools/Pack`), wh
 shared-layer list. Check out the core repository alongside this one, or set
 `HOSIHIKARI_PLUGINMANAGER`.
 
-After release: `lip install github.com/HosihikariFramework/FSharpProvider` (install the Shim
+After release: `lip install github.com/HosihikariFramework/FSharpLoader` (install the Shim
 variant for the carrier first).
 
 ## Licence

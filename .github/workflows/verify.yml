@@ -22,14 +22,14 @@ jobs:
       - name: 核心
         uses: actions/checkout@v7
         with:
-          repository: HosihikariFramework/PluginManagement
+          repository: HosihikariFramework/PluginManager
           path: Hosihikari.PluginManager
 
       # 契约与核心一起改：并列摆放才能编到新契约。
       - name: 契约
         uses: actions/checkout@v7
         with:
-          repository: HosihikariFramework/Abstractions
+          repository: HosihikariFramework/PluginAbstractions
           path: Hosihikari.Abstractions
 
       # 本机库的 RID 优先解析需要 fork；核心按 ../.. 找它。

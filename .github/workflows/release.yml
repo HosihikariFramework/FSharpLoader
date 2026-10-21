@@ -26,14 +26,14 @@ jobs:
       - name: 契约
         uses: actions/checkout@v7
         with:
-          repository: HosihikariFramework/Abstractions
+          repository: HosihikariFramework/PluginAbstractions
           path: Hosihikari.Abstractions
 
       # 打包器在核心仓；共享层清单由它统一给出（ADR-0036）。
       - name: 核心打包器
         uses: actions/checkout@v7
         with:
-          repository: HosihikariFramework/PluginManagement
+          repository: HosihikariFramework/PluginManager
           path: Hosihikari.PluginManager
 
       # 核心的 RID 优先解析需要 fork。

@@ -111,14 +111,14 @@ dotnet run --project host/Hosihikari.PluginLoader.FSharp.Host.csproj -c Release
 ## 打包
 
 ```
-pwsh ./pack.ps1 -Version 0.1.5 -OutputRoot artifacts
+pwsh ./pack.ps1 -Version 1.0.0 -OutputRoot artifacts
 ```
 
 它把加载器 DLL、私有依赖与清单装进 `hosihikari-fsharp/`，共享层不随包走；打 `v*` 标签时 CI 把 zip 附到 release（ADR-0036）。
 
 打包脚本调用插件管理者打包器（`Hosihikari.PluginManager/tools/Pack`），共享层清单由插件管理者统一给出；需要并列检出插件管理者仓，或设置 `HOSIHIKARI_PLUGINMANAGER`。
 
-发布后：`lip install github.com/HosihikariFramework/FSharpProvider`（先按载体装 Shim）。
+发布后：`lip install github.com/HosihikariFramework/FSharpLoader`（先按载体装 Shim）。
 
 ## 许可
 
