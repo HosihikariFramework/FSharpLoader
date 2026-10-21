@@ -18,8 +18,8 @@ namespace Hosihikari.PluginProvider.FSharp;
 /// F# 直接跑在 CLR 上。这个 Provider 做的事是**装载时编译**：
 /// 把清单 <c>entry</c> 指向的 <c>.fsx</c> 编成一个程序集，再交给一个 collectible ALC。
 ///
-/// 编译产物按**内容寻址**缓存（ADR-0029）：目录名是脚本内容、编译器与运行时版本的哈希，
-/// 所以脚本一改就换目录，旧代码不可能被跑到；产物旁另存一份校验和，加载前对一遍。
+/// 编译产物按**内容寻址**缓存（ADR-0029）：目录名是脚本内容、#load/#r 依赖、编译器与运行时版本的哈希，
+/// 所以任何一份输入一改就换目录，旧代码不可能被跑到；产物旁另存一份校验和，加载前对一遍。
 ///
 /// 入口靠约定：编出来的程序集里那个实现 <see cref="IPlugin"/>、有无参构造的类型（ADR-0008）。
 /// </summary>
@@ -54,24 +54,22 @@ public sealed class FSharpPluginProvider : IPluginProvider
             return null;
         }
 
-        // 内容寻址：目录名就把"脚本内容 + 编译器 + 运行时"钉死了。脚本改了就是另一个目录。
+        // 内容寻址：目录名把脚本、#load/#r 依赖、编译器与运行时一起钉死。任何一份输入变了就是另一个目录。
         var script = File.ReadAllText(entry);
-        var cacheKey = CacheKey(script, packageDirectory);
+        var analysis = AnalyzeDirectives(entry, script);
+        var cacheKey = CacheKey(entry, script, packageDirectory, analysis);
         var cacheRoot = Path.Combine(context.DataDirectory, "bin");
 
-        // 指令能引入包外、递归的源码或引用；不完整的依赖键会静默运行旧代码。
-        // shortcut: 含 # 的入口每次编译（注释或字符串也算）；需缓存时再接批编译一致的依赖解析。
-        var directiveEntry = script.Contains('#');
-
-        // 指令入口每次编译到独立目录：复用同一个键会让两个进程互相替换正在装载的产物。
+        // #load/#r 能引入包外、递归的源码或引用；只有把每一份依赖都算进键里才敢复用。
+        // 含 nuget 指令或 #I 等无法完整定键的入口仍每次编译到独立目录。
         var cacheDirectory = Path.Combine(
             cacheRoot,
-            directiveEntry ? cacheKey + "-run-" + Guid.NewGuid().ToString("N") : cacheKey);
+            analysis.Cacheable ? cacheKey : cacheKey + "-run-" + Guid.NewGuid().ToString("N"));
         var assemblyPath = Path.Combine(cacheDirectory, manifest.Name + ".dll");
 
-        if (directiveEntry)
+        if (!analysis.Cacheable)
         {
-            if (!Compile(entry, packageDirectory, cacheDirectory, manifest.Name, context, script))
+            if (!Compile(entry, packageDirectory, cacheDirectory, manifest.Name, context, analysis))
             {
                 return null;
             }
@@ -92,7 +90,7 @@ public sealed class FSharpPluginProvider : IPluginProvider
                 }
             }
 
-            if (!Compile(entry, packageDirectory, cacheDirectory, manifest.Name, context, script))
+            if (!Compile(entry, packageDirectory, cacheDirectory, manifest.Name, context, analysis))
             {
                 return null;
             }
@@ -108,7 +106,7 @@ public sealed class FSharpPluginProvider : IPluginProvider
         {
             // 另一个进程可能刚把旧缓存清掉；重编一次再租。
             context.Logger.LogWarning(ex, "缓存目录 {Directory} 已不可用，重编", cacheDirectory);
-            if (!Compile(entry, packageDirectory, cacheDirectory, manifest.Name, context, script))
+            if (!Compile(entry, packageDirectory, cacheDirectory, manifest.Name, context, analysis))
             {
                 return null;
             }
@@ -180,11 +178,23 @@ public sealed class FSharpPluginProvider : IPluginProvider
         }
     }
 
-    /// <summary>脚本内容 + 包内自带的依赖 + 编译器版本 + 运行时版本，xxhash128 后取十六进制。</summary>
-    private static string CacheKey(string script, string packageDirectory)
+    private sealed record DirectiveFile(string Path, byte[] Hash);
+
+    private sealed record DirectiveAnalysis(bool Cacheable, IReadOnlyList<DirectiveFile> Files);
+
+    private static readonly StringComparer PathComparer =
+        OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+
+    /// <summary>入口脚本 + #load/#r 依赖 + 包内自带的依赖 + 编译器版本 + 运行时版本。</summary>
+    private static string CacheKey(
+        string entryPath,
+        string script,
+        string packageDirectory,
+        DirectiveAnalysis analysis)
     {
         var hasher = new XxHash128();
-        hasher.Append(Encoding.UTF8.GetBytes("fsharp-cache-2"));
+        hasher.Append(Encoding.UTF8.GetBytes("fsharp-cache-3"));
+        hasher.Append(Encoding.UTF8.GetBytes(Path.GetFullPath(entryPath)));
         hasher.Append(Encoding.UTF8.GetBytes(script));
         hasher.Append(Encoding.UTF8.GetBytes(typeof(FSharpChecker).Assembly.GetName().Version?.ToString() ?? "?"));
         hasher.Append(Encoding.UTF8.GetBytes(typeof(IPlugin).Assembly.GetName().Version?.ToString() ?? "?"));
@@ -199,7 +209,230 @@ public sealed class FSharpPluginProvider : IPluginProvider
             hasher.Append(XxHash128.Hash(File.ReadAllBytes(path)));
         }
 
+        // #load/#r 引入的每一份文件；入口自身的字节哈希也在里面。
+        foreach (var file in analysis.Files.OrderBy(file => file.Path, StringComparer.Ordinal))
+        {
+            hasher.Append(Encoding.UTF8.GetBytes(file.Path));
+            hasher.Append(file.Hash);
+        }
+
         return Convert.ToHexStringLower(hasher.GetCurrentHash());
+    }
+
+    /// <summary>
+    /// 找出入口真正用到的 #load/#r 文件，并判断能否完整定键。
+    /// 注释与普通字符串里的 # 不算指令；nuget、#I 或无法解析的路径按不可缓存处理。
+    /// </summary>
+    private static DirectiveAnalysis AnalyzeDirectives(string entryPath, string script)
+    {
+        var files = new Dictionary<string, byte[]>(PathComparer);
+        var cacheable = true;
+        CollectDirectiveFiles(entryPath, script, files, ref cacheable);
+        return new DirectiveAnalysis(
+            cacheable,
+            files.Select(pair => new DirectiveFile(pair.Key, pair.Value)).ToArray());
+    }
+
+    private static void CollectDirectiveFiles(
+        string scriptPath,
+        string scriptText,
+        Dictionary<string, byte[]> files,
+        ref bool cacheable)
+    {
+        var fullPath = Path.GetFullPath(scriptPath);
+        if (files.ContainsKey(fullPath))
+        {
+            return;
+        }
+
+        try
+        {
+            files[fullPath] = XxHash128.Hash(File.ReadAllBytes(fullPath));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            files[fullPath] = XxHash128.Hash(Encoding.UTF8.GetBytes(scriptText));
+            cacheable = false;
+        }
+
+        using var reader = new StringReader(scriptText);
+        while (reader.ReadLine() is { } line)
+        {
+            var trimmed = line.TrimStart();
+            if (trimmed.Length < 2 || trimmed[0] != '#')
+            {
+                continue;
+            }
+
+            var keywordEnd = 1;
+            while (keywordEnd < trimmed.Length && char.IsLetter(trimmed[keywordEnd]))
+            {
+                keywordEnd++;
+            }
+
+            var keyword = trimmed[1..keywordEnd];
+            var rest = trimmed[keywordEnd..];
+            switch (keyword)
+            {
+                case "load":
+                    var loads = QuotedArguments(rest);
+                    if (loads.Count == 0)
+                    {
+                        cacheable = false;
+                        break;
+                    }
+
+                    foreach (var load in loads)
+                    {
+                        if (load.IndexOfAny(['*', '?']) >= 0)
+                        {
+                            cacheable = false;
+                            continue;
+                        }
+
+                        var path = ResolveDirectivePath(scriptPath, load);
+                        if (!File.Exists(path))
+                        {
+                            cacheable = false;
+                            continue;
+                        }
+
+                        try
+                        {
+                            CollectDirectiveFiles(path, File.ReadAllText(path), files, ref cacheable);
+                        }
+                        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                        {
+                            cacheable = false;
+                        }
+                    }
+
+                    break;
+
+                case "r":
+                    var references = QuotedArguments(rest);
+                    if (references.Count == 0)
+                    {
+                        cacheable = false;
+                        break;
+                    }
+
+                    foreach (var reference in references)
+                    {
+                        if (reference.StartsWith("nuget:", StringComparison.OrdinalIgnoreCase))
+                        {
+                            cacheable = false;
+                            continue;
+                        }
+
+                        if (!LooksLikePath(reference))
+                        {
+                            // 程序集名；包内 dll 已在包依赖哈希里，框架引用由版本字段覆盖。
+                            continue;
+                        }
+
+                        var path = ResolveDirectivePath(scriptPath, reference);
+                        if (!File.Exists(path))
+                        {
+                            cacheable = false;
+                            continue;
+                        }
+
+                        try
+                        {
+                            files[Path.GetFullPath(path)] = XxHash128.Hash(File.ReadAllBytes(path));
+                        }
+                        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                        {
+                            cacheable = false;
+                        }
+                    }
+
+                    break;
+
+                case "I":
+                    // 搜索路径会改变按名字解析到哪份程序集，静态键无法覆盖。
+                    cacheable = false;
+                    break;
+
+                case "nowarn":
+                case "warnon":
+                case "light":
+                case "if":
+                case "else":
+                case "endif":
+                case "line":
+                    break;
+
+                default:
+                    // 未知指令可能改变编译输入；保守地不缓存。
+                    cacheable = false;
+                    break;
+            }
+        }
+    }
+
+    private static IReadOnlyList<string> QuotedArguments(string rest)
+    {
+        var arguments = new List<string>();
+        var index = 0;
+        while (index < rest.Length)
+        {
+            if (rest[index] != '"')
+            {
+                index++;
+                continue;
+            }
+
+            var start = ++index;
+            while (index < rest.Length && rest[index] != '"')
+            {
+                index++;
+            }
+
+            arguments.Add(rest[start..index]);
+            if (index < rest.Length)
+            {
+                index++;
+            }
+        }
+
+        return arguments;
+    }
+
+    private static string ResolveDirectivePath(string scriptPath, string argument)
+    {
+        var directory = Path.GetDirectoryName(Path.GetFullPath(scriptPath))!;
+        return Path.GetFullPath(Path.IsPathRooted(argument) ? argument : Path.Combine(directory, argument));
+    }
+
+    private static bool LooksLikePath(string argument) =>
+        Path.IsPathRooted(argument)
+        || argument.Contains(Path.DirectorySeparatorChar)
+        || argument.Contains(Path.AltDirectorySeparatorChar)
+        || argument.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)
+        || argument.EndsWith(".exe", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>编译期间入口或任一指令依赖被换掉，就不能把新产物存到旧键下。</summary>
+    private static bool FilesUnchanged(DirectiveAnalysis analysis)
+    {
+        foreach (var file in analysis.Files)
+        {
+            try
+            {
+                if (!File.Exists(file.Path)
+                    || !XxHash128.Hash(File.ReadAllBytes(file.Path)).AsSpan().SequenceEqual(file.Hash))
+                {
+                    return false;
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>插件目录里自带的依赖；框架已经有的那些不算（共享层，ADR-0004）。</summary>
@@ -256,7 +489,7 @@ public sealed class FSharpPluginProvider : IPluginProvider
         string cacheDirectory,
         string name,
         IPluginContext context,
-        string script)
+        DirectiveAnalysis analysis)
     {
         // 编到唯一的临时目录，成功了再原子改名 —— 崩在中间不会留下半个产物，
         // 两个进程同时编同一份内容也不会踩同一个 .tmp。
@@ -272,10 +505,11 @@ public sealed class FSharpPluginProvider : IPluginProvider
                 return false;
             }
 
-            // 编译器按路径读文件；如果入口在键计算之后被换掉，宁可这次失败，也不要把 B 存到 A 的键下。
-            if (!string.Equals(File.ReadAllText(scriptPath), script, StringComparison.Ordinal))
+            // 编译器按路径读文件；入口或任一 #load/#r 依赖在键计算之后被换掉，
+            // 宁可这次失败，也不要把 B 存到 A 的键下。
+            if (!FilesUnchanged(analysis))
             {
-                context.Logger.LogWarning("{Script} 在编译期间发生变化，丢弃本次产物", scriptPath);
+                context.Logger.LogWarning("{Script} 或其指令依赖在编译期间发生变化，丢弃本次产物", scriptPath);
                 return false;
             }
 
@@ -313,7 +547,7 @@ public sealed class FSharpPluginProvider : IPluginProvider
                 {
                     Directory.Delete(staging, recursive: true);
                 }
-                catch (IOException)
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
                     // 清理失败不影响结果。
                 }
@@ -373,7 +607,7 @@ public sealed class FSharpPluginProvider : IPluginProvider
     // 另一个进程可能刚发布、还没装载这份产物；只清超过保留期的目录。
     private static readonly TimeSpan CacheRetention = TimeSpan.FromHours(1);
 
-    // 含 # 的入口每次编译到独立的 -run- 目录；十分钟没有租约就可以回收。
+    // 无法完整定键的指令入口每次编译到独立的 -run- 目录；十分钟没有租约就可以回收。
     private static readonly TimeSpan RunCacheRetention = TimeSpan.FromMinutes(10);
 
     /// <summary>

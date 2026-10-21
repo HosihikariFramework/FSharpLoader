@@ -128,31 +128,47 @@ var helperPath = Path.Combine(scriptDirectory, "helper.fsx");
 File.WriteAllText(helperPath, "module Helper\nlet value = \"first:\"\n");
 File.WriteAllText(scriptPath, "#load \"helper.fsx\"\n" + File.ReadAllText(scriptPath)
     .Replace("\"body:\" + greeting", "Helper.value + greeting", StringComparison.Ordinal));
+var cacheRoot = Path.Combine(dataDirectory, "bin");
+var directoriesBeforeHelper = Directory.GetDirectories(cacheRoot).ToHashSet(StringComparer.OrdinalIgnoreCase);
 var withHelper = host.Load(scriptDirectory);
 var firstBody = Read("body.txt");
+var directoriesWithHelper = Directory.GetDirectories(cacheRoot).ToHashSet(StringComparer.OrdinalIgnoreCase);
 var firstRelease = host.Unload("Hello");
 File.WriteAllText(helperPath, "module Helper\nlet value = \"changed:\"\n");
 var withChangedHelper = host.Load(scriptDirectory);
 var changedBody = Read("body.txt");
+var directoriesWithChangedHelper = Directory.GetDirectories(cacheRoot).ToHashSet(StringComparer.OrdinalIgnoreCase);
 checks.Add(("只改 #load 源码后重载使用新代码",
     withHelper && firstBody == "first:overridden" && withChangedHelper && changedBody == "changed:overridden",
     $"{firstBody} → {changedBody}"));
+checks.Add(("#load 依赖参与缓存键",
+    directoriesWithHelper.Count > directoriesBeforeHelper.Count
+    && directoriesWithChangedHelper.Count > directoriesWithHelper.Count,
+    $"{directoriesBeforeHelper.Count} → {directoriesWithHelper.Count} → {directoriesWithChangedHelper.Count}"));
 var secondRelease = host.Unload("Hello");
 checks.Add(("带 #load 的插件重载前后都能回收", firstRelease.Released && secondRelease.Released,
     $"first={firstRelease.Released} second={secondRelease.Released}"));
 
-var cacheRoot = Path.Combine(dataDirectory, "bin");
-
-// 含 # 的入口每次编译到独立目录；脚本不变也换目录，旧目录留给清理。
-var runDirectoriesBefore = Directory.GetDirectories(cacheRoot).ToHashSet(StringComparer.OrdinalIgnoreCase);
+// #load 的依赖已经纳入内容寻址：脚本不变就命中缓存，不再每次编译。
+var cachedDirectories = directoriesWithChangedHelper;
 var directiveReload = host.Load(scriptDirectory);
 Thread.Sleep(50);
-var runDirectoriesAfter = Directory.GetDirectories(cacheRoot);
-checks.Add(("含 # 的入口重载使用新的缓存目录",
-    directiveReload
-    && runDirectoriesAfter.Length > runDirectoriesBefore.Count
-    && runDirectoriesBefore.All(Directory.Exists),
-    $"{runDirectoriesBefore.Count} → {runDirectoriesAfter.Length}"));
+var reloadedDirectories = Directory.GetDirectories(cacheRoot).ToHashSet(StringComparer.OrdinalIgnoreCase);
+checks.Add(("含 #load 的入口重载命中缓存",
+    directiveReload && reloadedDirectories.SetEquals(cachedDirectories),
+    $"{cachedDirectories.Count} → {reloadedDirectories.Count}"));
+host.Unload("Hello");
+
+// #I 让静态键不完整：无法完整定键的指令入口仍然每次编译到新目录。
+File.WriteAllText(scriptPath, "#I \".\"\n" + File.ReadAllText(scriptPath));
+var uncacheableBefore = Directory.GetDirectories(cacheRoot).ToHashSet(StringComparer.OrdinalIgnoreCase);
+var uncacheableReload = host.Load(scriptDirectory);
+var uncacheableAfter = Directory.GetDirectories(cacheRoot);
+checks.Add(("无法完整定键的指令入口每次换目录",
+    uncacheableReload
+    && uncacheableAfter.Length > uncacheableBefore.Count
+    && uncacheableBefore.All(Directory.Exists),
+    $"{uncacheableBefore.Count} → {uncacheableAfter.Length}"));
 host.Unload("Hello");
 
 // 跨进程清理：新产物与暂存目录留下，过期目录只有在没人租用时才删。
@@ -386,6 +402,7 @@ bool StageScriptPackage()
     var nativeStaged = StageNativeFixture(package);
 
     File.WriteAllText(Path.Combine(package, "main.fsx"), """
+        // # not a directive: comments must not force recompilation.
         open Hosihikari
         open System.IO
         open System.Runtime.InteropServices
