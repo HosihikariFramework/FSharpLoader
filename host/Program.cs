@@ -232,6 +232,87 @@ checks.Add(("多文件 #load 的依赖改动后重编",
     multiReloaded && multiChanged == "aB",
     $"{multiText} → {multiChanged}"));
 
+// 注释前缀的合法 #load 仍然是指令：注释不能把它从缓存键里抹掉。
+var comment = Path.Combine(pluginsRoot, "Comment");
+Directory.CreateDirectory(comment);
+File.WriteAllText(Path.Combine(comment, "manifest.json"), """
+    {
+      "name": "Comment",
+      "entry": "main.fsx",
+      "type": "hosihikari",
+      "version": "1.0.0",
+      "dependencies": [
+        { "name": "hosihikari" },
+        { "name": "hosihikari-fsharp" }
+      ],
+      "extraInfo": { "api": "2", "format_version": "1", "provider": "fsharp" }
+    }
+    """);
+File.WriteAllText(Path.Combine(comment, "main.fsx"), "(* entry *) #load \"plugin.fsx\"\n");
+File.WriteAllText(Path.Combine(comment, "plugin.fsx"), PluginSource("CommentPlugin", "comment.txt", "first"));
+var commentPath = Path.Combine(dataRoot, "Comment", "comment.txt");
+var commentLoaded = host.Load(comment);
+var commentFirst = File.Exists(commentPath) ? File.ReadAllText(commentPath) : "(missing)";
+host.Unload("Comment");
+var commentCacheBefore = Directory.GetDirectories(cacheRoot).ToHashSet(StringComparer.OrdinalIgnoreCase);
+var commentAgain = host.Load(comment);
+var commentCacheAfter = Directory.GetDirectories(cacheRoot).ToHashSet(StringComparer.OrdinalIgnoreCase);
+host.Unload("Comment");
+checks.Add(("注释前缀的 #load 命中缓存",
+    commentLoaded && commentFirst == "first" && commentAgain
+    && commentCacheAfter.SetEquals(commentCacheBefore),
+    $"{commentFirst}, {commentCacheBefore.Count} → {commentCacheAfter.Count}"));
+File.WriteAllText(Path.Combine(comment, "plugin.fsx"), PluginSource("CommentPlugin", "comment.txt", "second"));
+var commentReloaded = host.Load(comment);
+var commentSecond = File.Exists(commentPath) ? File.ReadAllText(commentPath) : "(missing)";
+host.Unload("Comment");
+checks.Add(("注释前缀的 #load 依赖改动后重编",
+    commentReloaded && commentSecond == "second",
+    $"{commentFirst} → {commentSecond}"));
+
+// 多行字符串里的 #load 只是文本；真正的指令仍然要进缓存键。
+var stringy = Path.Combine(pluginsRoot, "Stringy");
+Directory.CreateDirectory(stringy);
+File.WriteAllText(Path.Combine(stringy, "manifest.json"), """
+    {
+      "name": "Stringy",
+      "entry": "main.fsx",
+      "type": "hosihikari",
+      "version": "1.0.0",
+      "dependencies": [
+        { "name": "hosihikari" },
+        { "name": "hosihikari-fsharp" }
+      ],
+      "extraInfo": { "api": "2", "format_version": "1", "provider": "fsharp" }
+    }
+    """);
+File.WriteAllText(Path.Combine(stringy, "main.fsx"), """"
+    let note = """
+    #load "missing.fsx"
+    """
+    #load "plugin.fsx"
+    """");
+File.WriteAllText(Path.Combine(stringy, "plugin.fsx"), PluginSource("StringPlugin", "string.txt", "first"));
+var stringyPath = Path.Combine(dataRoot, "Stringy", "string.txt");
+var stringyLoaded = host.Load(stringy);
+var stringyFirst = File.Exists(stringyPath) ? File.ReadAllText(stringyPath) : "(missing)";
+host.Unload("Stringy");
+var stringyCacheBefore = Directory.GetDirectories(cacheRoot).ToHashSet(StringComparer.OrdinalIgnoreCase);
+var stringyAgain = host.Load(stringy);
+var stringyCacheAfter = Directory.GetDirectories(cacheRoot).ToHashSet(StringComparer.OrdinalIgnoreCase);
+host.Unload("Stringy");
+checks.Add(("字符串里的 #load 不参与缓存键，入口仍命中缓存",
+    stringyLoaded && stringyFirst == "first" && stringyAgain
+    && stringyCacheAfter.SetEquals(stringyCacheBefore),
+    $"{stringyFirst}, {stringyCacheBefore.Count} → {stringyCacheAfter.Count}"));
+File.WriteAllText(Path.Combine(stringy, "plugin.fsx"), PluginSource("StringPlugin", "string.txt", "second"));
+var stringyReloaded = host.Load(stringy);
+var stringySecond = File.Exists(stringyPath) ? File.ReadAllText(stringyPath) : "(missing)";
+host.Unload("Stringy");
+checks.Add(("字符串之后的真 #load 仍跟踪依赖",
+    stringyReloaded && stringySecond == "second",
+    $"{stringyFirst} → {stringySecond}"));
+
 // 跨进程清理：新产物与暂存目录留下，过期目录只有在没人租用时才删。
 var freshPeer = Path.Combine(cacheRoot, "peer-fresh");
 var stalePeer = Path.Combine(cacheRoot, "peer-stale");
@@ -358,6 +439,19 @@ foreach (var (name, passed, detail) in checks)
 }
 
 return checks.All(check => check.Passed) ? 0 : 1;
+
+static string PluginSource(string typeName, string file, string value) => $$"""
+    open Hosihikari
+    open System.IO
+
+    type {{typeName}}() =
+        interface IPlugin with
+            member this.OnLoad(context: IPluginContext) =
+                File.WriteAllText(Path.Combine(context.DataDirectory, "{{file}}"), "{{value}}")
+            member this.OnEnable() = PluginHookResult.Allow()
+            member this.OnDisable() = PluginHookResult.Allow()
+            member this.OnUnload() = ()
+    """;
 
 string? Artifact()
 {

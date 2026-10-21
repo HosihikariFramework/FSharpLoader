@@ -106,7 +106,9 @@ collected), a second load hits the cache, and a tampered artifact is detected an
 It also uses a private fixture DLL that the host does not reference, and checks that editing only a
 `#load` helper changes the next load while both loaded instances can still be collected. Directive
 caching is covered as well: helpers and multi-file `#load` participate in the cache key, an
-unchanged directive entry hits the cache, and an `#I` entry rotates directories.
+unchanged directive entry hits the cache, and an `#I` entry rotates directories. A
+comment-prefixed directive is still recognized, and `#load` text inside a multiline string is
+treated as text.
 
 ## How it reaches the host process
 

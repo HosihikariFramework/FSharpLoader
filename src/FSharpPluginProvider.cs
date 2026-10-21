@@ -182,6 +182,14 @@ public sealed class FSharpPluginProvider : IPluginProvider
 
     private sealed record DirectiveAnalysis(bool Cacheable, IReadOnlyList<DirectiveFile> Files);
 
+    private enum StringKind
+    {
+        None,
+        Regular,
+        Verbatim,
+        Triple,
+    }
+
     private static readonly StringComparer PathComparer =
         OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
 
@@ -255,23 +263,16 @@ public sealed class FSharpPluginProvider : IPluginProvider
             cacheable = false;
         }
 
-        using var reader = new StringReader(scriptText);
-        while (reader.ReadLine() is { } line)
+        foreach (var directive in DirectiveLines(scriptText))
         {
-            var trimmed = line.TrimStart();
-            if (trimmed.Length < 2 || trimmed[0] != '#')
-            {
-                continue;
-            }
-
-            var keywordEnd = 1;
-            while (keywordEnd < trimmed.Length && char.IsLetter(trimmed[keywordEnd]))
+            var keywordEnd = 0;
+            while (keywordEnd < directive.Length && char.IsLetter(directive[keywordEnd]))
             {
                 keywordEnd++;
             }
 
-            var keyword = trimmed[1..keywordEnd];
-            var rest = trimmed[keywordEnd..];
+            var keyword = directive[..keywordEnd];
+            var rest = directive[keywordEnd..];
             switch (keyword)
             {
                 case "load":
@@ -368,6 +369,278 @@ public sealed class FSharpPluginProvider : IPluginProvider
                     // 未知指令可能改变编译输入；保守地不缓存。
                     cacheable = false;
                     break;
+            }
+        }
+    }
+
+    /// <summary>
+    /// 逐行找出真正的指令：跳过行注释、嵌套块注释与多行字符串，
+    /// 也允许块注释与指令在同一行（<c>(* note *) #load "x.fsx"</c>）。
+    /// 返回去掉注释后的 <c>#</c> 之后的内容。
+    /// </summary>
+    private static IEnumerable<string> DirectiveLines(string script)
+    {
+        var commentDepth = 0;
+        var stringKind = StringKind.None;
+
+        using var reader = new StringReader(script);
+        while (reader.ReadLine() is { } line)
+        {
+            var index = 0;
+            var codeSeen = false;
+            var inDirective = false;
+            var rest = new StringBuilder();
+
+            while (index < line.Length)
+            {
+                if (commentDepth > 0)
+                {
+                    if (line.AsSpan(index).StartsWith("(*", StringComparison.Ordinal))
+                    {
+                        commentDepth++;
+                        index += 2;
+                    }
+                    else if (line.AsSpan(index).StartsWith("*)", StringComparison.Ordinal))
+                    {
+                        commentDepth--;
+                        index += 2;
+                    }
+                    else
+                    {
+                        index++;
+                    }
+
+                    continue;
+                }
+
+                if (stringKind == StringKind.Triple)
+                {
+                    if (line.AsSpan(index).StartsWith("\"\"\"", StringComparison.Ordinal))
+                    {
+                        stringKind = StringKind.None;
+                        if (inDirective)
+                        {
+                            rest.Append("\"\"\"");
+                        }
+
+                        index += 3;
+                    }
+                    else
+                    {
+                        if (inDirective)
+                        {
+                            rest.Append(line[index]);
+                        }
+
+                        index++;
+                    }
+
+                    continue;
+                }
+
+                if (stringKind == StringKind.Verbatim)
+                {
+                    if (line[index] == '"')
+                    {
+                        if (index + 1 < line.Length && line[index + 1] == '"')
+                        {
+                            if (inDirective)
+                            {
+                                rest.Append("\"\"");
+                            }
+
+                            index += 2;
+                        }
+                        else
+                        {
+                            stringKind = StringKind.None;
+                            if (inDirective)
+                            {
+                                rest.Append('"');
+                            }
+
+                            index++;
+                        }
+                    }
+                    else
+                    {
+                        if (inDirective)
+                        {
+                            rest.Append(line[index]);
+                        }
+
+                        index++;
+                    }
+
+                    continue;
+                }
+
+                if (stringKind == StringKind.Regular)
+                {
+                    if (line[index] == '\\' && index + 1 < line.Length)
+                    {
+                        if (inDirective)
+                        {
+                            rest.Append(line[index]);
+                            rest.Append(line[index + 1]);
+                        }
+
+                        index += 2;
+                    }
+                    else if (line[index] == '"')
+                    {
+                        stringKind = StringKind.None;
+                        if (inDirective)
+                        {
+                            rest.Append('"');
+                        }
+
+                        index++;
+                    }
+                    else
+                    {
+                        if (inDirective)
+                        {
+                            rest.Append(line[index]);
+                        }
+
+                        index++;
+                    }
+
+                    continue;
+                }
+
+                var current = line[index];
+                if (char.IsWhiteSpace(current))
+                {
+                    if (inDirective)
+                    {
+                        rest.Append(current);
+                    }
+
+                    index++;
+                    continue;
+                }
+
+                if (line.AsSpan(index).StartsWith("//", StringComparison.Ordinal))
+                {
+                    break;
+                }
+
+                if (line.AsSpan(index).StartsWith("(*", StringComparison.Ordinal))
+                {
+                    commentDepth = 1;
+                    index += 2;
+                    continue;
+                }
+
+                if (current == '"')
+                {
+                    codeSeen = true;
+                    if (line.AsSpan(index).StartsWith("\"\"\"", StringComparison.Ordinal))
+                    {
+                        stringKind = StringKind.Triple;
+                        if (inDirective)
+                        {
+                            rest.Append("\"\"\"");
+                        }
+
+                        index += 3;
+                    }
+                    else
+                    {
+                        stringKind = StringKind.Regular;
+                        if (inDirective)
+                        {
+                            rest.Append('"');
+                        }
+
+                        index++;
+                    }
+
+                    continue;
+                }
+
+                if (current == '@' && index + 1 < line.Length && line[index + 1] == '"')
+                {
+                    codeSeen = true;
+                    stringKind = StringKind.Verbatim;
+                    if (inDirective)
+                    {
+                        rest.Append("@\"");
+                    }
+
+                    index += 2;
+                    continue;
+                }
+
+                if (current == '$' && index + 1 < line.Length)
+                {
+                    if (line.AsSpan(index + 1).StartsWith("\"\"\"", StringComparison.Ordinal))
+                    {
+                        codeSeen = true;
+                        stringKind = StringKind.Triple;
+                        if (inDirective)
+                        {
+                            rest.Append("$\"\"\"");
+                        }
+
+                        index += 4;
+                        continue;
+                    }
+
+                    if (line[index + 1] == '"')
+                    {
+                        codeSeen = true;
+                        stringKind = StringKind.Regular;
+                        if (inDirective)
+                        {
+                            rest.Append("$\"");
+                        }
+
+                        index += 2;
+                        continue;
+                    }
+
+                    if (index + 2 < line.Length && line[index + 1] == '@' && line[index + 2] == '"')
+                    {
+                        codeSeen = true;
+                        stringKind = StringKind.Verbatim;
+                        if (inDirective)
+                        {
+                            rest.Append("$@\"");
+                        }
+
+                        index += 3;
+                        continue;
+                    }
+                }
+
+                if (current == '#' && !codeSeen && !inDirective)
+                {
+                    inDirective = true;
+                    index++;
+                    continue;
+                }
+
+                codeSeen = true;
+                if (inDirective)
+                {
+                    rest.Append(current);
+                }
+
+                index++;
+            }
+
+            // 普通字符串不跨行；未闭合的脚本本来也编译不过。
+            if (stringKind == StringKind.Regular)
+            {
+                stringKind = StringKind.None;
+            }
+
+            if (inDirective)
+            {
+                yield return rest.ToString();
             }
         }
     }
