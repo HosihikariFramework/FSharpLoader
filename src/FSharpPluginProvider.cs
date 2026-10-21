@@ -599,6 +599,18 @@ public sealed class FSharpPluginProvider : IPluginProvider
                     continue;
                 }
 
+                if (TryCharLiteral(line, index, out var charLength))
+                {
+                    codeSeen = true;
+                    if (inDirective)
+                    {
+                        rest.Append(line.AsSpan(index, charLength));
+                    }
+
+                    index += charLength;
+                    continue;
+                }
+
                 if (TryStartString(line, index, out var kind, out var length))
                 {
                     codeSeen = true;
@@ -655,6 +667,68 @@ public sealed class FSharpPluginProvider : IPluginProvider
 
         complete = commentDepth == 0 && stringKind == StringKind.None;
         return directives;
+    }
+
+    /// <summary>
+    /// 识别字符字面量（<c>'a'</c>、<c>'\n'</c>、<c>'"'</c> 等），避免把里面的引号当成字符串开头。
+    /// 类型参数 <c>'T</c> 没有闭合引号，不会被误判。
+    /// </summary>
+    private static bool TryCharLiteral(string line, int index, out int length)
+    {
+        length = 0;
+        if (index + 2 >= line.Length || line[index] != '\'')
+        {
+            return false;
+        }
+
+        if (line[index + 1] == '\\')
+        {
+            var cursor = index + 2;
+            if (cursor >= line.Length)
+            {
+                return false;
+            }
+
+            if (line[cursor] is 'u' or 'U')
+            {
+                var digits = line[cursor] == 'u' ? 4 : 8;
+                cursor++;
+                if (cursor + digits >= line.Length)
+                {
+                    return false;
+                }
+
+                for (var digit = 0; digit < digits; digit++)
+                {
+                    if (!Uri.IsHexDigit(line[cursor + digit]))
+                    {
+                        return false;
+                    }
+                }
+
+                cursor += digits;
+            }
+            else
+            {
+                cursor++;
+            }
+
+            if (cursor < line.Length && line[cursor] == '\'')
+            {
+                length = cursor + 1 - index;
+                return true;
+            }
+
+            return false;
+        }
+
+        if (line[index + 2] == '\'')
+        {
+            length = 3;
+            return true;
+        }
+
+        return false;
     }
 
     private static bool TryStartString(string line, int index, out StringKind kind, out int length)

@@ -439,6 +439,49 @@ checks.Add(("引号标识符之后的 #load 依赖改动后重编",
     quotedReloaded && quotedSecond == "second",
     $"{quotedFirst} → {quotedSecond}"));
 
+// 字符字面量 '"' 里的引号不是字符串开头，后面的块注释与 #load 都不能被吞掉。
+var charLiteral = Path.Combine(pluginsRoot, "CharLiteral");
+Directory.CreateDirectory(charLiteral);
+File.WriteAllText(Path.Combine(charLiteral, "manifest.json"), """
+    {
+      "name": "CharLiteral",
+      "entry": "main.fsx",
+      "type": "hosihikari",
+      "version": "1.0.0",
+      "dependencies": [
+        { "name": "hosihikari" },
+        { "name": "hosihikari-fsharp" }
+      ],
+      "extraInfo": { "api": "2", "format_version": "1", "provider": "fsharp" }
+    }
+    """);
+File.WriteAllText(Path.Combine(charLiteral, "main.fsx"), """
+    let quote = '"' (* " (* " *)
+    #load "plugin.fsx"
+    """);
+File.WriteAllText(Path.Combine(charLiteral, "plugin.fsx"),
+    PluginSource("CharLiteralPlugin", "char-literal.txt", "first"));
+var charLiteralPath = Path.Combine(dataRoot, "CharLiteral", "char-literal.txt");
+var charLiteralLoaded = host.Load(charLiteral);
+var charLiteralFirst = File.Exists(charLiteralPath) ? File.ReadAllText(charLiteralPath) : "(missing)";
+host.Unload("CharLiteral");
+var charLiteralCacheBefore = Directory.GetDirectories(cacheRoot).ToHashSet(StringComparer.OrdinalIgnoreCase);
+var charLiteralAgain = host.Load(charLiteral);
+var charLiteralCacheAfter = Directory.GetDirectories(cacheRoot).ToHashSet(StringComparer.OrdinalIgnoreCase);
+host.Unload("CharLiteral");
+checks.Add(("字符字面量的引号不吞掉后续 #load，入口命中缓存",
+    charLiteralLoaded && charLiteralFirst == "first" && charLiteralAgain
+    && charLiteralCacheAfter.SetEquals(charLiteralCacheBefore),
+    $"{charLiteralFirst}, {charLiteralCacheBefore.Count} → {charLiteralCacheAfter.Count}"));
+File.WriteAllText(Path.Combine(charLiteral, "plugin.fsx"),
+    PluginSource("CharLiteralPlugin", "char-literal.txt", "second"));
+var charLiteralReloaded = host.Load(charLiteral);
+var charLiteralSecond = File.Exists(charLiteralPath) ? File.ReadAllText(charLiteralPath) : "(missing)";
+host.Unload("CharLiteral");
+checks.Add(("字符字面量之后的 #load 依赖改动后重编",
+    charLiteralReloaded && charLiteralSecond == "second",
+    $"{charLiteralFirst} → {charLiteralSecond}"));
+
 // 跨进程清理：新产物与暂存目录留下，过期目录只有在没人租用时才删。
 var freshPeer = Path.Combine(cacheRoot, "peer-fresh");
 var stalePeer = Path.Combine(cacheRoot, "peer-stale");
