@@ -121,7 +121,7 @@ declare the dependency, and the dependency graph orders the provider first:
 ## Packaging
 
 ```
-pwsh ./pack.ps1 -Version 0.1.2 -OutputRoot artifacts
+pwsh ./pack.ps1 -Version 0.1.3 -OutputRoot artifacts
 ```
 
 It assembles the provider DLL, its private dependencies and the manifest into
