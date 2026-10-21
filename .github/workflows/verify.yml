@@ -18,7 +18,7 @@ jobs:
         with:
           path: provider
 
-      # 验证宿主借核心的 PluginManagerHost。它按 ../.. 找这个目录，所以位置要照着摆。
+      # 验证宿主借核心的 PluginManager。它按 ../.. 找这个目录，所以位置要照着摆。
       - name: 核心
         uses: actions/checkout@v7
         with:
@@ -44,4 +44,4 @@ jobs:
           dotnet-version: '10.0.x'
       - name: 跑断言
         working-directory: provider
-        run: dotnet run --project host/Hosihikari.PluginProvider.FSharp.Host.csproj -c Release --nologo
+        run: dotnet run --project host/Hosihikari.PluginLoader.FSharp.Host.csproj -c Release --nologo

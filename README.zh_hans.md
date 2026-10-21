@@ -1,15 +1,15 @@
-# Hosihikari.PluginProvider.FSharp
+# Hosihikari.PluginLoader.FSharp
 
 [English](README.md) | [简体中文](README.zh_hans.md)
 
-星光框架的 **F# 型插件 Provider**。F# 直接跑在 CLR 上，所以这个 Provider
+星光框架的 **F# 型插件加载器**。F# 直接跑在 CLR 上，所以这个加载器
 **装载时编译**：`.fsx` 变成一个真正的程序集，再进它自己的 collectible ALC。
 
 这让 F# 插件拿到与其他程序集插件一样的承诺：每插件的依赖互相隔离，卸载是真的验证过而不是假定的。
-这是一等 Provider：在插件开始运行前把源码 AOT 为 IL，Provider 把 IL 装进 collectible ALC。
+这是进程内加载器：在插件开始运行前把源码编译为 IL，加载器把 IL 装进 collectible ALC。
 
-**进程内只留 .NET。** 框架在进程内保留程序集型、C# 与 F# 三个 Provider；其他语言走
-通用的进程外 Provider（`Hosihikari.PluginProvider.Rpc`，ADR-0031）。
+**进程内只留 .NET。** 框架在进程内保留程序集型、C# 与 F# 三个加载器；其他语言走
+通用的进程外加载器（`Hosihikari.PluginLoader.Rpc`，ADR-0031）。
 
 ## 模板
 
@@ -30,13 +30,13 @@ plugins/Hello/
         { "name": "hosihikari" },
         { "name": "hosihikari-fsharp" }
       ],
-      "extraInfo": { "api": "2", "format_version": "1", "provider": "fsharp" }
+      "extraInfo": { "api_version": "2", "manifest_version": "1", "loader": "fsharp" }
     }
   main.fsx
   Hello.conf          ← 作者给的默认值，随包更新
 ```
 
-源码里定义一个实现 `IPlugin`、有无参构造的类型；找到它是 Provider 的事。**钩子参数要标注类型** ——
+源码里定义一个实现 `IPlugin`、有无参构造的类型；找到它是加载器的事。**钩子参数要标注类型** ——
 编译器需要它：
 
 ```fsharp
@@ -66,7 +66,7 @@ type HelloPlugin() =
 用 `FSharp.Compiler.Service` 的 `FSharpChecker`，但**不走** `GetProjectOptionsFromScript` ——
 在没有 SDK 上下文的目录里它会退到 .NET Framework 的参考集。这里显式给
 `--noframework --targetprofile:netcore` 加一份引用清单：框架自己 ALC 里已加载的程序集（契约即使不在
-TPA 里也从这里拿）、包根目录内的私有 DLL、这个 Provider 自己的目录（`FSharp.Core` 等随包走），
+TPA 里也从这里拿）、包根目录内的私有 DLL、这个加载器自己的目录（`FSharp.Core` 等随包走），
 最后才是宿主的 TPA。契约由宿主提供，因此身份不变。
 
 产物按内容寻址缓存：`<数据目录>/bin/<哈希>/<名字>.dll`，哈希覆盖源码内容、`#load` 与本地 `#r`
@@ -83,10 +83,10 @@ TPA 里也从这里拿）、包根目录内的私有 DLL、这个 Provider 自�
 ## 跑一遍
 
 ```
-dotnet run --project host/Hosihikari.PluginProvider.FSharp.Host.csproj -c Release
+dotnet run --project host/Hosihikari.PluginLoader.FSharp.Host.csproj -c Release
 ```
 
-验证宿主借核心的 `PluginManagerHost` 驱动它，所以需要并列的 `Hosihikari.PluginManager`、`Hosihikari.Abstractions` 与 McMaster 的 fork checkout。它验证：Provider 由插件包登记、产物按内容寻址落盘且带校验和
+验证宿主借插件管理者的 `PluginManager` 驱动它，所以需要并列的 `Hosihikari.PluginManager`、契约仓检出（契约包 `Hosihikari.Plugin.Abstractions`）与 McMaster 的 fork checkout。它验证：加载器由插件包登记、产物按内容寻址落盘且带校验和
 与 PDB、源码装载时编译并读到包外覆盖、启用钩子到达插件、宿主发的通道消息它能收到、包内自带的第三方依赖
 可用、停用与卸载钩子到达、卸载验证通过（ALC 真的被回收）、同一份源码再装载命中缓存、以及产物被改坏后
 会被发现并重编。
@@ -114,9 +114,9 @@ dotnet run --project host/Hosihikari.PluginProvider.FSharp.Host.csproj -c Releas
 pwsh ./pack.ps1 -Version 0.1.5 -OutputRoot artifacts
 ```
 
-它把 Provider DLL、私有依赖与清单装进 `hosihikari-fsharp/`，共享层不随包走；打 `v*` 标签时 CI 把 zip 附到 release（ADR-0036）。
+它把加载器 DLL、私有依赖与清单装进 `hosihikari-fsharp/`，共享层不随包走；打 `v*` 标签时 CI 把 zip 附到 release（ADR-0036）。
 
-打包脚本调用核心打包器（`Hosihikari.PluginManager/tools/Pack`），共享层清单由核心统一给出；需要并列检出核心仓，或设置 `HOSIHIKARI_PLUGINMANAGER`。
+打包脚本调用插件管理者打包器（`Hosihikari.PluginManager/tools/Pack`），共享层清单由插件管理者统一给出；需要并列检出插件管理者仓，或设置 `HOSIHIKARI_PLUGINMANAGER`。
 
 发布后：`lip install github.com/HosihikariFramework/FSharpProvider`（先按载体装 Shim）。
 

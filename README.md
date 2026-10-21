@@ -1,18 +1,18 @@
-# Hosihikari.PluginProvider.FSharp
+# Hosihikari.PluginLoader.FSharp
 
 [English](README.md) | [简体中文](README.zh_hans.md)
 
-The **F# plugin Provider** of the Hosihikari framework. F# runs on the CLR, so this provider
+The **F# plugin loader** of the Hosihikari framework. F# runs on the CLR, so this loader
 **compiles at load time**: a `.fsx` becomes a real assembly, which then goes
 into its own collectible ALC.
 
 That buys F# plugins the same promises as any assembly plugin: per-plugin dependency isolation, and
-an unload that is verified rather than assumed. This is a first-class provider: it AOT-compiles source
-to IL before the plugin runs, and the provider loads that IL into a collectible ALC.
+an unload that is verified rather than assumed. This is an in-process loader: it compiles source to IL before the plugin runs, and the
+loader loads that IL into a collectible ALC.
 
-**In-process .NET.** The framework keeps the assembly provider, the C# provider and this F# provider
-in-process; other languages go through the generic out-of-process provider
-(`Hosihikari.PluginProvider.Rpc`, ADR-0031).
+**In-process .NET.** The framework keeps the assembly loader, the C# loader and this F# loader
+in-process; other languages go through the generic out-of-process loader
+(`Hosihikari.PluginLoader.Rpc`, ADR-0031).
 
 ## Templates
 
@@ -33,14 +33,14 @@ plugins/Hello/
         { "name": "hosihikari" },
         { "name": "hosihikari-fsharp" }
       ],
-      "extraInfo": { "api": "2", "format_version": "1", "provider": "fsharp" }
+      "extraInfo": { "api_version": "2", "manifest_version": "1", "loader": "fsharp" }
     }
   main.fsx
   Hello.conf          ← the author's defaults, shipped with the package
 ```
 
 The source defines a type implementing `IPlugin` with a parameterless constructor; finding it is the
-provider's job. Annotate the hook parameter — the compiler needs it:
+loader's job. Annotate the hook parameter — the compiler needs it:
 
 ```fsharp
 open Hosihikari
@@ -69,9 +69,9 @@ plugin cannot.
 
 `FSharpChecker` from `FSharp.Compiler.Service`, driven explicitly rather than through
 `GetProjectOptionsFromScript` — in a directory with no SDK context that helper falls back to the
-.NET Framework reference set. The provider passes `--noframework --targetprofile:netcore` plus an
+.NET Framework reference set. The loader passes `--noframework --targetprofile:netcore` plus an
 explicit reference list: assemblies already loaded in the framework's own ALC (the contract, even
-when it is absent from the TPA), private DLLs in the plugin package root, the provider's own
+when it is absent from the TPA), private DLLs in the plugin package root, the loader's own
 directory (which ships `FSharp.Core` and friends), and finally the host's trusted platform
 assemblies. The contract comes from the host, so it keeps its identity.
 
@@ -93,12 +93,13 @@ could forge the cache as well. ADR-0029 records that boundary.
 ## Running it
 
 ```
-dotnet run --project host/Hosihikari.PluginProvider.FSharp.Host.csproj -c Release
+dotnet run --project host/Hosihikari.PluginLoader.FSharp.Host.csproj -c Release
 ```
 
-The harness drives this Provider through the core's real `PluginManagerHost`, so sibling
-`Hosihikari.PluginManager`, `Hosihikari.Abstractions` and McMaster fork checkouts are required. It checks these
-things: the Provider is registered by a plugin package, the artifact lands in a content-addressed
+The harness drives this loader through the real `PluginManager`, so sibling
+`Hosihikari.PluginManager`, the contract checkout (package `Hosihikari.Plugin.Abstractions`) and the
+McMaster fork checkouts are required. It checks these
+things: the loader is registered by a plugin package, the artifact lands in a content-addressed
 directory with its checksum and PDB, the source is compiled at load and reads the operator's override,
 enable hooks reach it, a channel message from the host reaches it, a package-local third-party
 dependency is usable, disable and unload hooks arrive, the unload verifies (the ALC is actually
@@ -113,8 +114,8 @@ identifiers containing `(*`, and character literals containing a quote are cover
 
 ## How it reaches the host process
 
-As a plugin package, named `hosihikari-fsharp` — the same way as the C# provider. Source packages
-declare the dependency, and the dependency graph orders the provider first:
+As a plugin package, named `hosihikari-fsharp` — the same way as the C# loader. Source packages
+declare the dependency, and the dependency graph orders the loader first:
 
 ```json
 "dependencies": [
@@ -123,7 +124,7 @@ declare the dependency, and the dependency graph orders the provider first:
 ]
 ```
 
-**Registration cannot be undone**: the types this provider hands out live in its load context.
+**Registration cannot be undone**: the types this loader hands out live in its load context.
 
 ## Packaging
 
@@ -131,7 +132,7 @@ declare the dependency, and the dependency graph orders the provider first:
 pwsh ./pack.ps1 -Version 0.1.5 -OutputRoot artifacts
 ```
 
-It assembles the provider DLL, its private dependencies and the manifest into
+It assembles the loader DLL, its private dependencies and the manifest into
 `hosihikari-fsharp/`; the shared layer is not copied. Pushing a `v*` tag attaches the zip to the
 GitHub release (ADR-0036).
 

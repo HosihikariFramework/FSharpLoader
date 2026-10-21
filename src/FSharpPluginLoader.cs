@@ -10,12 +10,12 @@ using Hosihikari;
 using Microsoft.Extensions.Logging;
 using Microsoft.FSharp.Control;
 
-namespace Hosihikari.PluginProvider.FSharp;
+namespace Hosihikari.PluginLoader.FSharp;
 
 /// <summary>
-/// F# 型插件（ADR-0002 的 Provider 扩展点）。
+/// F# 型插件的加载器（ADR-0002 的扩展点）。
 ///
-/// F# 直接跑在 CLR 上。这个 Provider 做的事是**装载时编译**：
+/// F# 直接跑在 CLR 上。这个加载器做的事是**装载时编译**：
 /// 把清单 <c>entry</c> 指向的 <c>.fsx</c> 编成一个程序集，再交给一个 collectible ALC。
 ///
 /// 编译产物按**内容寻址**缓存（ADR-0029）：目录名是脚本内容、#load/#r 依赖、编译器与运行时版本的哈希，
@@ -23,7 +23,7 @@ namespace Hosihikari.PluginProvider.FSharp;
 ///
 /// 入口靠约定：编出来的程序集里那个实现 <see cref="IPlugin"/>、有无参构造的类型（ADR-0008）。
 /// </summary>
-public sealed class FSharpPluginProvider : IPluginProvider
+public sealed class FSharpPluginLoader : IPluginLoader
 {
     /// <summary>
     /// 框架自己的装载上下文。组件托管给核心的是一个**隔离**的 ALC，契约与它的抽象包都在里面 ——
@@ -32,8 +32,8 @@ public sealed class FSharpPluginProvider : IPluginProvider
     private static readonly AssemblyLoadContext? FrameworkContext =
         AssemblyLoadContext.GetLoadContext(typeof(IPlugin).Assembly);
 
-    private static readonly string? ProviderDirectory =
-        Path.GetDirectoryName(typeof(FSharpPluginProvider).Assembly.Location);
+    private static readonly string? LoaderDirectory =
+        Path.GetDirectoryName(typeof(FSharpPluginLoader).Assembly.Location);
 
     /// <summary>产物校验和的落地名：内容寻址管"该不该编"，它管"编出来的还是不是那个"。</summary>
     private const string ChecksumSuffix = ".xxh128";
@@ -41,16 +41,16 @@ public sealed class FSharpPluginProvider : IPluginProvider
     private readonly FSharpChecker _checker = FSharpChecker.Create(
         null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
-    public string Type => "fsharp";
+    public string Id => "fsharp";
 
-    public bool CanLoad(PluginManifest manifest) => manifest.Provider == Type;
+    public bool CanLoad(PluginManifest manifest) => manifest.Loader == Id;
 
-    public PluginInstance? Load(PluginManifest manifest, string packageDirectory, IPluginContext context)
+    public PluginHandle? Load(PluginManifest manifest, string packageDirectory, IPluginContext context)
     {
-        var entry = Path.Combine(packageDirectory, manifest.Entry);
+        var entry = Path.Combine(packageDirectory, manifest.EntryPath);
         if (!File.Exists(entry))
         {
-            context.Logger.LogError("清单 entry 指向的 {Entry} 不存在", manifest.Entry);
+            context.Logger.LogError("清单 entry 指向的 {Entry} 不存在", manifest.EntryPath);
             return null;
         }
 
@@ -153,7 +153,7 @@ public sealed class FSharpPluginProvider : IPluginProvider
                 return null;
             }
 
-            return new CompiledPluginInstance(plugin, loadContext);
+            return new CompiledPluginHandle(plugin, loadContext);
         }
         catch (Exception ex)
         {
@@ -207,7 +207,7 @@ public sealed class FSharpPluginProvider : IPluginProvider
         hasher.Append(Encoding.UTF8.GetBytes(script));
         hasher.Append(Encoding.UTF8.GetBytes(typeof(FSharpChecker).Assembly.GetName().Version?.ToString() ?? "?"));
         hasher.Append(Encoding.UTF8.GetBytes(typeof(IPlugin).Assembly.GetName().Version?.ToString() ?? "?"));
-        hasher.Append(Encoding.UTF8.GetBytes(typeof(FSharpPluginProvider).Assembly.GetName().Version?.ToString() ?? "?"));
+        hasher.Append(Encoding.UTF8.GetBytes(typeof(FSharpPluginLoader).Assembly.GetName().Version?.ToString() ?? "?"));
         hasher.Append(Encoding.UTF8.GetBytes(System.Runtime.InteropServices.RuntimeInformation.RuntimeIdentifier));
         hasher.Append(Encoding.UTF8.GetBytes(Environment.Version.ToString()));
 
@@ -958,7 +958,7 @@ public sealed class FSharpPluginProvider : IPluginProvider
     {
         // 不用 GetProjectOptionsFromScript：在没有 SDK 上下文的目录里它会退到 .NET Framework
         // 的参考集（mscorlib / System.Windows.Forms）。这里直接按 SDK 的做法拼：
-        // --noframework + 显式的引用清单 —— 运行时、契约，以及这个 Provider 自己的依赖
+        // --noframework + 显式的引用清单 —— 运行时、契约，以及这个加载器自己的依赖
         // （FSharp.Core 等，它们随包走、不在宿主的 TPA 里）。
         // 引用 = 宿主的运行时 + 框架自己 ALC 里的那些 + **插件包里自带的依赖**。
         var references = CollectReferences(packageDirectory)
@@ -1083,7 +1083,7 @@ public sealed class FSharpPluginProvider : IPluginProvider
         Path.Combine(root, Path.GetFileName(cacheDirectory) + ".lease");
 
     /// <summary>
-    /// 与运行期同一优先级：插件包自带的依赖优先，其次 Provider 目录（FSharp.Core 等），
+    /// 与运行期同一优先级：插件包自带的依赖优先，其次加载器目录（FSharp.Core 等），
     /// 最后是宿主的 TPA。反过来的话，包内旧版本可能在编译期被 TPA 的新版本遮蔽，
     /// 运行期 ALC 又按包内版本加载，最后在调用新 API 时抛 MissingMethodException。
     /// </summary>
@@ -1091,7 +1091,7 @@ public sealed class FSharpPluginProvider : IPluginProvider
     {
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        // 隔离宿主里契约在核心 ALC，不在 TPA，也不在 Provider 包里。
+        // 隔离宿主里契约在核心 ALC，不在 TPA，也不在加载器包里。
         // 编译器必须用与运行时相同的共享身份；按程序集名去重，和 ScriptLoadContext 一致。
         if (FrameworkContext is not null)
         {
@@ -1118,13 +1118,13 @@ public sealed class FSharpPluginProvider : IPluginProvider
             }
         }
 
-        var providerDirectory = ProviderDirectory;
-        if (providerDirectory is null)
+        var loaderDirectory = LoaderDirectory;
+        if (loaderDirectory is null)
         {
             yield break;
         }
 
-        foreach (var path in Directory.EnumerateFiles(providerDirectory, "*.dll"))
+        foreach (var path in Directory.EnumerateFiles(loaderDirectory, "*.dll"))
         {
             if (seen.Add(Path.GetFileNameWithoutExtension(path)))
             {
@@ -1191,9 +1191,9 @@ public sealed class FSharpPluginProvider : IPluginProvider
             var path = _resolver?.ResolveAssemblyToPath(assemblyName)
                        ?? Existing(Path.Combine(_directory, assemblyName.Name + ".dll"))
                        ?? Existing(Path.Combine(_packageDirectory, assemblyName.Name + ".dll"))
-                       ?? (ProviderDirectory is null
+                       ?? (LoaderDirectory is null
                            ? null
-                           : Existing(Path.Combine(ProviderDirectory, assemblyName.Name + ".dll")));
+                           : Existing(Path.Combine(LoaderDirectory, assemblyName.Name + ".dll")));
             return path is null ? null : LoadFromAssemblyPath(path);
         }
 
@@ -1261,16 +1261,44 @@ public sealed class FSharpPluginProvider : IPluginProvider
     }
 }
 
-internal sealed class CompiledPluginInstance(IPlugin plugin, AssemblyLoadContext loadContext) : PluginInstance(plugin)
+internal sealed class CompiledPluginHandle(IPlugin plugin, AssemblyLoadContext loadContext) : PluginHandle(plugin)
 {
+    private WeakReference? _weakContext;
     private AssemblyLoadContext? _loadContext = loadContext;
 
+    public override bool IsUnloaded => _weakContext is { IsAlive: false };
+
     /// <summary>编出来的程序集就是搬运单元（ADR-0010）：放下它，回收照常验证（ADR-0023）。</summary>
-    public override Func<bool> Release()
+    public override void Unload()
     {
-        var contextUnderTest = new WeakReference(_loadContext!);
-        _loadContext!.Unload();
+        if (_loadContext is null)
+        {
+            return;
+        }
+
+        _weakContext = new WeakReference(_loadContext);
+        _loadContext.Unload();
         _loadContext = null;
-        return () => !contextUnderTest.IsAlive;
+        Plugin = null;
+    }
+
+    public override async Task<bool> WaitForUnloadAsync(CancellationToken cancellationToken = default)
+    {
+        if (_weakContext is null)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < 100 && _weakContext.IsAlive; i++)
+        {
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            if (_weakContext.IsAlive)
+            {
+                await Task.Delay(10, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        return !_weakContext.IsAlive;
     }
 }

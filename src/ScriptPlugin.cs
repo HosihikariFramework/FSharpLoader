@@ -1,7 +1,7 @@
 using Hosihikari;
 using Microsoft.Extensions.Logging;
 
-namespace Hosihikari.PluginProvider.FSharp;
+namespace Hosihikari.PluginLoader.FSharp;
 
 /// <summary>
 /// 脚本插件在契约这边的样子。脚本本体在装载时就跑完了，这里只持有它在运行期登记的

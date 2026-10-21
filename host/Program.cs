@@ -1,12 +1,12 @@
 using System.Runtime.Loader;
-using Hosihikari.PluginManagement;
-using Hosihikari.PluginProvider.FSharp;
+using Hosihikari;
+using Hosihikari.PluginLoader.FSharp;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 // 载体中立检查（ADR-0015）：普通 .NET 控制台驱动核心，不碰 BDS、Shim、任何载体。
 //
-// 宿主**不直接注册** F# Provider —— 它把 Provider 当成一个插件包装进去，由那个包在 OnLoad
+// 宿主**不直接注册** F# 加载器 —— 它把加载器当成一个插件包装进去，由那个包在 OnLoad
 // 里把自己登记给框架（ADR-0002）。第二步才是 F# 的本体：装载时把 .fsx 编成程序集，进一个
 // collectible ALC。
 var stage = Path.Combine(Path.GetTempPath(), "hosihikari-fsharp-spike");
@@ -20,7 +20,7 @@ var dataRoot = Path.Combine(stage, "data");
 var configRoot = Path.Combine(stage, "config", "hosihikari");
 Directory.CreateDirectory(configRoot);
 
-StageProviderPackage();
+StageLoaderPackage();
 var nativeStaged = StageScriptPackage();
 
 // 运营方的覆盖放包外（ADR-0018）—— 脚本读到的应当是这一份。
@@ -33,7 +33,7 @@ collection.AddLogging(builder => builder
 var services = collection.BuildServiceProvider();
 
 var reported = new List<string>();
-var host = new PluginManagerHost(
+var host = new PluginManager(
     pluginsRoot,
     dataRoot,
     configRoot,
@@ -44,7 +44,7 @@ var host = new PluginManagerHost(
     },
     services);
 
-host.AddProvider(new AssemblyPluginProvider());
+host.RegisterLoader(new AssemblyPluginLoader());
 
 Console.WriteLine("=== 加载（含一次 F# 编译） ===");
 host.LoadAll();
@@ -56,11 +56,11 @@ host.Events.Publish(new Hosihikari.ChannelMessage("ping", "\"from-host\""));
 var dataDirectory = Path.Combine(dataRoot, "Hello");
 var checks = new List<(string Name, bool Passed, string Detail)>();
 
-var providerLoaded = host.LoadedNames.Contains("hosihikari-fsharp");
+var loaderLoaded = host.LoadedNames.Contains("hosihikari-fsharp");
 var scriptLoaded = host.LoadedNames.Contains("Hello");
 checks.Add((
-    "Provider 由插件包登记，随后的 F# 包被它接管",
-    providerLoaded && scriptLoaded,
+    "Loader 由插件包登记，随后的 F# 包被它接管",
+    loaderLoaded && scriptLoaded,
     string.Join(", ", host.LoadedNames)
 ));
 
@@ -184,7 +184,7 @@ File.WriteAllText(Path.Combine(multi, "manifest.json"), """
         { "name": "hosihikari" },
         { "name": "hosihikari-fsharp" }
       ],
-      "extraInfo": { "api": "2", "format_version": "1", "provider": "fsharp" }
+      "extraInfo": { "api_version": "2", "manifest_version": "1", "loader": "fsharp" }
     }
     """);
 File.WriteAllText(Path.Combine(multi, "main.fsx"), """
@@ -249,7 +249,7 @@ File.WriteAllText(Path.Combine(comment, "manifest.json"), """
         { "name": "hosihikari" },
         { "name": "hosihikari-fsharp" }
       ],
-      "extraInfo": { "api": "2", "format_version": "1", "provider": "fsharp" }
+      "extraInfo": { "api_version": "2", "manifest_version": "1", "loader": "fsharp" }
     }
     """);
 File.WriteAllText(Path.Combine(comment, "main.fsx"), "(* entry *) #load \"plugin.fsx\"\n");
@@ -287,7 +287,7 @@ File.WriteAllText(Path.Combine(stringy, "manifest.json"), """
         { "name": "hosihikari" },
         { "name": "hosihikari-fsharp" }
       ],
-      "extraInfo": { "api": "2", "format_version": "1", "provider": "fsharp" }
+      "extraInfo": { "api_version": "2", "manifest_version": "1", "loader": "fsharp" }
     }
     """);
 File.WriteAllText(Path.Combine(stringy, "main.fsx"), """"
@@ -330,7 +330,7 @@ File.WriteAllText(Path.Combine(operatorDir, "manifest.json"), """
         { "name": "hosihikari" },
         { "name": "hosihikari-fsharp" }
       ],
-      "extraInfo": { "api": "2", "format_version": "1", "provider": "fsharp" }
+      "extraInfo": { "api_version": "2", "manifest_version": "1", "loader": "fsharp" }
     }
     """);
 File.WriteAllText(Path.Combine(operatorDir, "main.fsx"), """
@@ -372,7 +372,7 @@ File.WriteAllText(Path.Combine(commentString, "manifest.json"), """
         { "name": "hosihikari" },
         { "name": "hosihikari-fsharp" }
       ],
-      "extraInfo": { "api": "2", "format_version": "1", "provider": "fsharp" }
+      "extraInfo": { "api_version": "2", "manifest_version": "1", "loader": "fsharp" }
     }
     """);
 File.WriteAllText(Path.Combine(commentString, "main.fsx"), """
@@ -415,7 +415,7 @@ File.WriteAllText(Path.Combine(quoted, "manifest.json"), """
         { "name": "hosihikari" },
         { "name": "hosihikari-fsharp" }
       ],
-      "extraInfo": { "api": "2", "format_version": "1", "provider": "fsharp" }
+      "extraInfo": { "api_version": "2", "manifest_version": "1", "loader": "fsharp" }
     }
     """);
 File.WriteAllText(Path.Combine(quoted, "main.fsx"), """
@@ -456,7 +456,7 @@ File.WriteAllText(Path.Combine(charLiteral, "manifest.json"), """
         { "name": "hosihikari" },
         { "name": "hosihikari-fsharp" }
       ],
-      "extraInfo": { "api": "2", "format_version": "1", "provider": "fsharp" }
+      "extraInfo": { "api_version": "2", "manifest_version": "1", "loader": "fsharp" }
     }
     """);
 File.WriteAllText(Path.Combine(charLiteral, "main.fsx"), """
@@ -499,7 +499,7 @@ File.WriteAllText(Path.Combine(lexical, "manifest.json"), """
         { "name": "hosihikari" },
         { "name": "hosihikari-fsharp" }
       ],
-      "extraInfo": { "api": "2", "format_version": "1", "provider": "fsharp" }
+      "extraInfo": { "api_version": "2", "manifest_version": "1", "loader": "fsharp" }
     }
     """);
 File.WriteAllText(Path.Combine(lexical, "main.fsx"), """"
@@ -547,7 +547,7 @@ File.WriteAllText(Path.Combine(tpaMiss, "manifest.json"), """
         { "name": "hosihikari" },
         { "name": "hosihikari-fsharp" }
       ],
-      "extraInfo": { "api": "2", "format_version": "1", "provider": "fsharp" }
+      "extraInfo": { "api_version": "2", "manifest_version": "1", "loader": "fsharp" }
     }
     """);
 File.WriteAllText(Path.Combine(tpaMiss, "main.fsx"), PluginSource("TpaPlugin", "tpa.txt", "ok"));
@@ -557,7 +557,7 @@ var tpaWithoutContract = string.Join(
     (originalTpa ?? string.Empty)
         .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)
         .Where(path => !string.Equals(
-            Path.GetFileName(path), "Hosihikari.Abstractions.dll", StringComparison.OrdinalIgnoreCase)));
+            Path.GetFileName(path), "Hosihikari.Plugin.Abstractions.dll", StringComparison.OrdinalIgnoreCase)));
 var tpaLoaded = false;
 try
 {
@@ -613,7 +613,7 @@ using (var peerLease = new FileStream(
 }
 host.Unload("Hello");
 
-// 构造函数抛出时，Provider 必须回收 ALC 并交回 null；否则每次重试都泄漏一个 ALC。
+// 构造函数抛出时，加载器必须回收 ALC 并交回 null；否则每次重试都泄漏一个 ALC。
 var broken = Path.Combine(pluginsRoot, "Broken");
 Directory.CreateDirectory(broken);
 File.WriteAllText(Path.Combine(broken, "manifest.json"), """
@@ -626,7 +626,7 @@ File.WriteAllText(Path.Combine(broken, "manifest.json"), """
         { "name": "hosihikari" },
         { "name": "hosihikari-fsharp" }
       ],
-      "extraInfo": { "api": "2", "format_version": "1", "provider": "fsharp" }
+      "extraInfo": { "api_version": "2", "manifest_version": "1", "loader": "fsharp" }
     }
     """);
 File.WriteAllText(Path.Combine(broken, "main.fsx"), """
@@ -672,7 +672,7 @@ File.WriteAllText(Path.Combine(nested, "manifest.json"), """
         { "name": "hosihikari" },
         { "name": "hosihikari-fsharp" }
       ],
-      "extraInfo": { "api": "2", "format_version": "1", "provider": "fsharp" }
+      "extraInfo": { "api_version": "2", "manifest_version": "1", "loader": "fsharp" }
     }
     """);
 File.WriteAllText(Path.Combine(nested, "src", "main.fsx"), """
@@ -759,8 +759,8 @@ string Read(string file)
     return File.Exists(path) ? File.ReadAllText(path) : "（没写出来）";
 }
 
-// Provider 包：普通程序集型插件，入口在 OnLoad 里登记 F# Provider。
-void StageProviderPackage()
+// Loader 包：普通程序集型插件，入口在 OnLoad 里登记 F# 加载器。
+void StageLoaderPackage()
 {
     var package = Path.Combine(pluginsRoot, "hosihikari-fsharp");
     Directory.CreateDirectory(package);
@@ -768,11 +768,11 @@ void StageProviderPackage()
     File.WriteAllText(Path.Combine(package, "manifest.json"), """
         {
           "name": "hosihikari-fsharp",
-          "entry": "Hosihikari.PluginProvider.FSharp.dll",
+          "entry": "Hosihikari.PluginLoader.FSharp.dll",
           "type": "hosihikari",
           "version": "0.1.0",
           "dependencies": [ { "name": "hosihikari" } ],
-          "extraInfo": { "api": "2", "format_version": "1", "provider": "assembly" }
+          "extraInfo": { "api_version": "2", "manifest_version": "1", "loader": "assembly" }
         }
         """);
 
@@ -780,21 +780,21 @@ void StageProviderPackage()
     var output = Path.Combine(RepoRoot(), "src", "bin", ConfigurationName(), "net10.0");
     foreach (var file in Directory.EnumerateFiles(output, "*.dll"))
     {
-        if (Path.GetFileName(file) is "Hosihikari.Abstractions.dll")
+        if (Path.GetFileName(file) is "Hosihikari.Plugin.Abstractions.dll")
         {
             continue;
         }
         File.Copy(file, Path.Combine(package, Path.GetFileName(file)));
     }
 
-    var deps = Path.Combine(output, "Hosihikari.PluginProvider.FSharp.deps.json");
+    var deps = Path.Combine(output, "Hosihikari.PluginLoader.FSharp.deps.json");
     if (File.Exists(deps))
     {
         File.Copy(deps, Path.Combine(package, Path.GetFileName(deps)));
     }
 }
 
-// F# 包：一个 .fsx，里面定义实现 IPlugin 的类型 —— 编译与入口发现都是 Provider 的事。
+// F# 包：一个 .fsx，里面定义实现 IPlugin 的类型 —— 编译与入口发现都是加载器的事。
 bool StageScriptPackage()
 {
     var package = Path.Combine(pluginsRoot, "Hello");
@@ -810,7 +810,7 @@ bool StageScriptPackage()
             { "name": "hosihikari" },
             { "name": "hosihikari-fsharp" }
           ],
-          "extraInfo": { "api": "2", "format_version": "1", "provider": "fsharp" }
+          "extraInfo": { "api_version": "2", "manifest_version": "1", "loader": "fsharp" }
         }
         """);
 
@@ -962,7 +962,7 @@ static string RepoRoot()
 {
     var directory = new DirectoryInfo(AppContext.BaseDirectory);
     while (directory is not null &&
-           !File.Exists(Path.Combine(directory.FullName, "src", "Hosihikari.PluginProvider.FSharp.csproj")))
+           !File.Exists(Path.Combine(directory.FullName, "src", "Hosihikari.PluginLoader.FSharp.csproj")))
     {
         directory = directory.Parent;
     }

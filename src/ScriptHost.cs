@@ -1,7 +1,7 @@
 using Hosihikari;
 using Microsoft.Extensions.Logging;
 
-namespace Hosihikari.PluginProvider.FSharp;
+namespace Hosihikari.PluginLoader.FSharp;
 
 /// <summary>
 /// 脚本看得见的那一个全局对象 <c>hosihikari</c>。
@@ -35,9 +35,9 @@ internal sealed class ScriptHost(ScriptPlugin plugin, IPluginContext context)
 
     public void onUnload(Action callback) => plugin.OnUnloadHook(callback);
 
-    public IDisposable runLater(double milliseconds, Action work) =>
-        context.Scheduler.RunLater(TimeSpan.FromMilliseconds(milliseconds), work);
+    public IDisposable scheduleOnce(double milliseconds, Action work) =>
+        context.Scheduler.ScheduleOnce(TimeSpan.FromMilliseconds(milliseconds), work);
 
-    public IDisposable runEvery(double milliseconds, Action work) =>
-        context.Scheduler.RunEvery(TimeSpan.FromMilliseconds(milliseconds), work);
+    public IDisposable schedulePeriodic(double milliseconds, Action work) =>
+        context.Scheduler.SchedulePeriodic(TimeSpan.FromMilliseconds(milliseconds), work);
 }

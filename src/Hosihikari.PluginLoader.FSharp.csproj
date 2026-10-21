@@ -4,8 +4,8 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <RootNamespace>Hosihikari.PluginProvider.FSharp</RootNamespace>
-    <AssemblyName>Hosihikari.PluginProvider.FSharp</AssemblyName>
+    <RootNamespace>Hosihikari.PluginLoader.FSharp</RootNamespace>
+    <AssemblyName>Hosihikari.PluginLoader.FSharp</AssemblyName>
     <!-- 它本身要作为一个插件包分发，包里的依赖必须跟着构建输出走。 -->
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
@@ -17,12 +17,12 @@
   </ItemGroup>
 
   <!-- 契约来自另一个仓，两种拿法二选一。 -->
-  <ItemGroup Condition="Exists('../../Hosihikari.Abstractions/src/Hosihikari.Abstractions.csproj')">
-    <ProjectReference Include="../../Hosihikari.Abstractions/src/Hosihikari.Abstractions.csproj" />
+  <ItemGroup Condition="Exists('../../Hosihikari.Abstractions/src/Hosihikari.Plugin.Abstractions.csproj')">
+    <ProjectReference Include="../../Hosihikari.Abstractions/src/Hosihikari.Plugin.Abstractions.csproj" />
   </ItemGroup>
 
-  <ItemGroup Condition="!Exists('../../Hosihikari.Abstractions/src/Hosihikari.Abstractions.csproj')">
-    <PackageReference Include="Hosihikari.Abstractions" Version="[0.7.1]" />
+  <ItemGroup Condition="!Exists('../../Hosihikari.Abstractions/src/Hosihikari.Plugin.Abstractions.csproj')">
+    <PackageReference Include="Hosihikari.Plugin.Abstractions" Version="[0.7.1]" />
   </ItemGroup>
 
 </Project>

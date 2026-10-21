@@ -22,7 +22,7 @@ jobs:
         with:
           path: provider
 
-      # Provider 编译到契约；共享层不进 Provider 包（ADR-0036）。
+      # Loader 编译到契约；共享层不进 Loader 包（ADR-0036）。
       - name: 契约
         uses: actions/checkout@v7
         with:
