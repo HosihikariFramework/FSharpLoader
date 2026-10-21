@@ -1091,9 +1091,28 @@ public sealed class FSharpPluginProvider : IPluginProvider
     {
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
+        // 隔离宿主里契约在核心 ALC，不在 TPA，也不在 Provider 包里。
+        // 编译器必须用与运行时相同的共享身份；按程序集名去重，和 ScriptLoadContext 一致。
+        if (FrameworkContext is not null)
+        {
+            foreach (var assembly in FrameworkContext.Assemblies)
+            {
+                var name = assembly.GetName().Name;
+                if (name is null || !seen.Add(name))
+                {
+                    continue;
+                }
+
+                if (!string.IsNullOrEmpty(assembly.Location))
+                {
+                    yield return assembly.Location;
+                }
+            }
+        }
+
         foreach (var path in LocalAssemblies(packageDirectory))
         {
-            if (seen.Add(Path.GetFileName(path)))
+            if (seen.Add(Path.GetFileNameWithoutExtension(path)))
             {
                 yield return path;
             }
@@ -1107,7 +1126,7 @@ public sealed class FSharpPluginProvider : IPluginProvider
 
         foreach (var path in Directory.EnumerateFiles(providerDirectory, "*.dll"))
         {
-            if (seen.Add(Path.GetFileName(path)))
+            if (seen.Add(Path.GetFileNameWithoutExtension(path)))
             {
                 yield return path;
             }
@@ -1116,7 +1135,7 @@ public sealed class FSharpPluginProvider : IPluginProvider
         var trusted = (string?)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES");
         foreach (var path in (trusted ?? string.Empty).Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
         {
-            if (seen.Add(Path.GetFileName(path)))
+            if (seen.Add(Path.GetFileNameWithoutExtension(path)))
             {
                 yield return path;
             }

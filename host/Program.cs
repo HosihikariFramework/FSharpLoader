@@ -214,9 +214,9 @@ var multiPath = Path.Combine(dataRoot, "Multi", "multi.txt");
 var multiLoaded = host.Load(multi);
 var multiText = File.Exists(multiPath) ? File.ReadAllText(multiPath) : "(missing)";
 host.Unload("Multi");
-var multiCacheBefore = Directory.GetDirectories(cacheRoot).ToHashSet(StringComparer.OrdinalIgnoreCase);
+var multiCacheBefore = CacheDirs("Multi");
 var multiAgain = host.Load(multi);
-var multiCacheAfter = Directory.GetDirectories(cacheRoot).ToHashSet(StringComparer.OrdinalIgnoreCase);
+var multiCacheAfter = CacheDirs("Multi");
 host.Unload("Multi");
 checks.Add(("多文件 #load 入口命中缓存",
     multiLoaded && multiText == "ab" && multiAgain && multiCacheAfter.SetEquals(multiCacheBefore),
@@ -231,6 +231,10 @@ host.Unload("Multi");
 checks.Add(("多文件 #load 的依赖改动后重编",
     multiReloaded && multiChanged == "aB",
     $"{multiText} → {multiChanged}"));
+var multiCacheChanged = CacheDirs("Multi");
+checks.Add(("多文件 #load 的依赖改动后换目录",
+    multiReloaded && multiCacheChanged.Count > multiCacheBefore.Count,
+    $"{multiCacheBefore.Count} → {multiCacheChanged.Count}"));
 
 // 注释前缀的合法 #load 仍然是指令：注释不能把它从缓存键里抹掉。
 var comment = Path.Combine(pluginsRoot, "Comment");
@@ -254,9 +258,9 @@ var commentPath = Path.Combine(dataRoot, "Comment", "comment.txt");
 var commentLoaded = host.Load(comment);
 var commentFirst = File.Exists(commentPath) ? File.ReadAllText(commentPath) : "(missing)";
 host.Unload("Comment");
-var commentCacheBefore = Directory.GetDirectories(cacheRoot).ToHashSet(StringComparer.OrdinalIgnoreCase);
+var commentCacheBefore = CacheDirs("Comment");
 var commentAgain = host.Load(comment);
-var commentCacheAfter = Directory.GetDirectories(cacheRoot).ToHashSet(StringComparer.OrdinalIgnoreCase);
+var commentCacheAfter = CacheDirs("Comment");
 host.Unload("Comment");
 checks.Add(("注释前缀的 #load 命中缓存",
     commentLoaded && commentFirst == "first" && commentAgain
@@ -297,9 +301,9 @@ var stringyPath = Path.Combine(dataRoot, "Stringy", "string.txt");
 var stringyLoaded = host.Load(stringy);
 var stringyFirst = File.Exists(stringyPath) ? File.ReadAllText(stringyPath) : "(missing)";
 host.Unload("Stringy");
-var stringyCacheBefore = Directory.GetDirectories(cacheRoot).ToHashSet(StringComparer.OrdinalIgnoreCase);
+var stringyCacheBefore = CacheDirs("Stringy");
 var stringyAgain = host.Load(stringy);
-var stringyCacheAfter = Directory.GetDirectories(cacheRoot).ToHashSet(StringComparer.OrdinalIgnoreCase);
+var stringyCacheAfter = CacheDirs("Stringy");
 host.Unload("Stringy");
 checks.Add(("字符串里的 #load 不参与缓存键，入口仍命中缓存",
     stringyLoaded && stringyFirst == "first" && stringyAgain
@@ -339,9 +343,9 @@ var operatorPath = Path.Combine(dataRoot, "Operator", "operator.txt");
 var operatorLoaded = host.Load(operatorDir);
 var operatorFirst = File.Exists(operatorPath) ? File.ReadAllText(operatorPath) : "(missing)";
 host.Unload("Operator");
-var operatorCacheBefore = Directory.GetDirectories(cacheRoot).ToHashSet(StringComparer.OrdinalIgnoreCase);
+var operatorCacheBefore = CacheDirs("Operator");
 var operatorAgain = host.Load(operatorDir);
-var operatorCacheAfter = Directory.GetDirectories(cacheRoot).ToHashSet(StringComparer.OrdinalIgnoreCase);
+var operatorCacheAfter = CacheDirs("Operator");
 host.Unload("Operator");
 checks.Add(("(*) 运算符之后的 #load 命中缓存",
     operatorLoaded && operatorFirst == "first" && operatorAgain
@@ -381,9 +385,9 @@ var commentStringPath = Path.Combine(dataRoot, "CommentString", "comment-string.
 var commentStringLoaded = host.Load(commentString);
 var commentStringFirst = File.Exists(commentStringPath) ? File.ReadAllText(commentStringPath) : "(missing)";
 host.Unload("CommentString");
-var commentStringCacheBefore = Directory.GetDirectories(cacheRoot).ToHashSet(StringComparer.OrdinalIgnoreCase);
+var commentStringCacheBefore = CacheDirs("CommentString");
 var commentStringAgain = host.Load(commentString);
-var commentStringCacheAfter = Directory.GetDirectories(cacheRoot).ToHashSet(StringComparer.OrdinalIgnoreCase);
+var commentStringCacheAfter = CacheDirs("CommentString");
 host.Unload("CommentString");
 checks.Add(("注释字符串里的 (* 不吞掉后续 #load，入口命中缓存",
     commentStringLoaded && commentStringFirst == "first" && commentStringAgain
@@ -423,9 +427,9 @@ var quotedPath = Path.Combine(dataRoot, "Quoted", "quoted.txt");
 var quotedLoaded = host.Load(quoted);
 var quotedFirst = File.Exists(quotedPath) ? File.ReadAllText(quotedPath) : "(missing)";
 host.Unload("Quoted");
-var quotedCacheBefore = Directory.GetDirectories(cacheRoot).ToHashSet(StringComparer.OrdinalIgnoreCase);
+var quotedCacheBefore = CacheDirs("Quoted");
 var quotedAgain = host.Load(quoted);
-var quotedCacheAfter = Directory.GetDirectories(cacheRoot).ToHashSet(StringComparer.OrdinalIgnoreCase);
+var quotedCacheAfter = CacheDirs("Quoted");
 host.Unload("Quoted");
 checks.Add(("引号标识符里的 (* 不吞掉后续 #load，入口命中缓存",
     quotedLoaded && quotedFirst == "first" && quotedAgain
@@ -465,9 +469,9 @@ var charLiteralPath = Path.Combine(dataRoot, "CharLiteral", "char-literal.txt");
 var charLiteralLoaded = host.Load(charLiteral);
 var charLiteralFirst = File.Exists(charLiteralPath) ? File.ReadAllText(charLiteralPath) : "(missing)";
 host.Unload("CharLiteral");
-var charLiteralCacheBefore = Directory.GetDirectories(cacheRoot).ToHashSet(StringComparer.OrdinalIgnoreCase);
+var charLiteralCacheBefore = CacheDirs("CharLiteral");
 var charLiteralAgain = host.Load(charLiteral);
-var charLiteralCacheAfter = Directory.GetDirectories(cacheRoot).ToHashSet(StringComparer.OrdinalIgnoreCase);
+var charLiteralCacheAfter = CacheDirs("CharLiteral");
 host.Unload("CharLiteral");
 checks.Add(("字符字面量的引号不吞掉后续 #load，入口命中缓存",
     charLiteralLoaded && charLiteralFirst == "first" && charLiteralAgain
@@ -514,9 +518,9 @@ var lexicalPath = Path.Combine(dataRoot, "Lexical", "lexical.txt");
 var lexicalLoaded = host.Load(lexical);
 var lexicalFirst = File.Exists(lexicalPath) ? File.ReadAllText(lexicalPath) : "(missing)";
 host.Unload("Lexical");
-var lexicalCacheBefore = Directory.GetDirectories(cacheRoot).ToHashSet(StringComparer.OrdinalIgnoreCase);
+var lexicalCacheBefore = CacheDirs("Lexical");
 var lexicalAgain = host.Load(lexical);
-var lexicalCacheAfter = Directory.GetDirectories(cacheRoot).ToHashSet(StringComparer.OrdinalIgnoreCase);
+var lexicalCacheAfter = CacheDirs("Lexical");
 host.Unload("Lexical");
 checks.Add(("混合词法构造后的 #load 命中缓存",
     lexicalLoaded && lexicalFirst == "first" && lexicalAgain
@@ -529,6 +533,48 @@ host.Unload("Lexical");
 checks.Add(("混合词法构造后的 #load 依赖改动后重编",
     lexicalReloaded && lexicalSecond == "second",
     $"{lexicalFirst} → {lexicalSecond}"));
+
+// 隔离宿主：契约在核心 ALC、不在 TPA；编译器仍要从 FrameworkContext 拿到它。
+var tpaMiss = Path.Combine(pluginsRoot, "TpaMiss");
+Directory.CreateDirectory(tpaMiss);
+File.WriteAllText(Path.Combine(tpaMiss, "manifest.json"), """
+    {
+      "name": "TpaMiss",
+      "entry": "main.fsx",
+      "type": "hosihikari",
+      "version": "1.0.0",
+      "dependencies": [
+        { "name": "hosihikari" },
+        { "name": "hosihikari-fsharp" }
+      ],
+      "extraInfo": { "api": "2", "format_version": "1", "provider": "fsharp" }
+    }
+    """);
+File.WriteAllText(Path.Combine(tpaMiss, "main.fsx"), PluginSource("TpaPlugin", "tpa.txt", "ok"));
+var originalTpa = (string?)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES");
+var tpaWithoutContract = string.Join(
+    Path.PathSeparator,
+    (originalTpa ?? string.Empty)
+        .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)
+        .Where(path => !string.Equals(
+            Path.GetFileName(path), "Hosihikari.Abstractions.dll", StringComparison.OrdinalIgnoreCase)));
+var tpaLoaded = false;
+try
+{
+    AppContext.SetData("TRUSTED_PLATFORM_ASSEMBLIES", tpaWithoutContract);
+    tpaLoaded = host.Load(tpaMiss);
+}
+finally
+{
+    AppContext.SetData("TRUSTED_PLATFORM_ASSEMBLIES", originalTpa);
+}
+
+var tpaFile = Path.Combine(dataRoot, "TpaMiss", "tpa.txt");
+var tpaText = File.Exists(tpaFile) ? File.ReadAllText(tpaFile) : "(missing)";
+host.Unload("TpaMiss");
+checks.Add(("共享契约不在 TPA 时仍能编译 F# 插件",
+    tpaLoaded && tpaText == "ok",
+    $"loaded={tpaLoaded} tpa={tpaText}"));
 
 // 跨进程清理：新产物与暂存目录留下，过期目录只有在没人租用时才删。
 var freshPeer = Path.Combine(cacheRoot, "peer-fresh");
@@ -656,6 +702,14 @@ foreach (var (name, passed, detail) in checks)
 }
 
 return checks.All(check => check.Passed) ? 0 : 1;
+
+HashSet<string> CacheDirs(string pluginName)
+{
+    var bin = Path.Combine(dataRoot, pluginName, "bin");
+    return Directory.Exists(bin)
+        ? Directory.GetDirectories(bin).ToHashSet(StringComparer.OrdinalIgnoreCase)
+        : [];
+}
 
 static string PluginSource(string typeName, string file, string value) => $$"""
     open Hosihikari

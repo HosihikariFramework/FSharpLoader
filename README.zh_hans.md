@@ -65,9 +65,9 @@ type HelloPlugin() =
 
 用 `FSharp.Compiler.Service` 的 `FSharpChecker`，但**不走** `GetProjectOptionsFromScript` ——
 在没有 SDK 上下文的目录里它会退到 .NET Framework 的参考集。这里显式给
-`--noframework --targetprofile:netcore` 加一份引用清单：宿主的运行时，以及这个 Provider 自己的目录
-（`FSharp.Core` 等随包走）。契约由宿主提供，因此身份不变。
-包根目录内的私有 DLL 也参与编译引用，运行时从包目录解析。
+`--noframework --targetprofile:netcore` 加一份引用清单：框架自己 ALC 里已加载的程序集（契约即使不在
+TPA 里也从这里拿）、包根目录内的私有 DLL、这个 Provider 自己的目录（`FSharp.Core` 等随包走），
+最后才是宿主的 TPA。契约由宿主提供，因此身份不变。
 
 产物按内容寻址缓存：`<数据目录>/bin/<哈希>/<名字>.dll`，哈希覆盖源码内容、`#load` 与本地 `#r`
 引入的文件、包内私有 DLL 的名字和内容、编译器版本与运行时版本。

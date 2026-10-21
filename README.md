@@ -70,10 +70,10 @@ plugin cannot.
 `FSharpChecker` from `FSharp.Compiler.Service`, driven explicitly rather than through
 `GetProjectOptionsFromScript` — in a directory with no SDK context that helper falls back to the
 .NET Framework reference set. The provider passes `--noframework --targetprofile:netcore` plus an
-explicit reference list: the host's trusted platform assemblies, and the provider's own directory
-(which ships `FSharp.Core` and friends). The contract comes from the host, so it keeps its identity.
-Private DLLs in the plugin package root are also referenced at compile time and resolved from that
-directory at runtime.
+explicit reference list: assemblies already loaded in the framework's own ALC (the contract, even
+when it is absent from the TPA), private DLLs in the plugin package root, the provider's own
+directory (which ships `FSharp.Core` and friends), and finally the host's trusted platform
+assemblies. The contract comes from the host, so it keeps its identity.
 
 The output is cached by content: `<data directory>/bin/<hash>/<name>.dll`, the hash covering the
 source text, the files pulled in by `#load` and local `#r` directives, package-local private DLL
