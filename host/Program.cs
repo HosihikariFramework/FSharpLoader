@@ -171,6 +171,67 @@ checks.Add(("无法完整定键的指令入口每次换目录",
     $"{uncacheableBefore.Count} → {uncacheableAfter.Length}"));
 host.Unload("Hello");
 
+// 多文件 #load：每一份源码都参与缓存键。
+var multi = Path.Combine(pluginsRoot, "Multi");
+Directory.CreateDirectory(multi);
+File.WriteAllText(Path.Combine(multi, "manifest.json"), """
+    {
+      "name": "Multi",
+      "entry": "main.fsx",
+      "type": "hosihikari",
+      "version": "1.0.0",
+      "dependencies": [
+        { "name": "hosihikari" },
+        { "name": "hosihikari-fsharp" }
+      ],
+      "extraInfo": { "api": "2", "format_version": "1", "provider": "fsharp" }
+    }
+    """);
+File.WriteAllText(Path.Combine(multi, "main.fsx"), """
+    #load "a.fsx"
+    #load "b.fsx"
+
+    open Hosihikari
+    open System.IO
+
+    type MultiPlugin() =
+        interface IPlugin with
+            member this.OnLoad(context: IPluginContext) =
+                File.WriteAllText(Path.Combine(context.DataDirectory, "multi.txt"), A.value + B.value)
+            member this.OnEnable() = PluginHookResult.Allow()
+            member this.OnDisable() = PluginHookResult.Allow()
+            member this.OnUnload() = ()
+    """);
+File.WriteAllText(Path.Combine(multi, "a.fsx"), """
+    module A
+    let value = "a"
+    """);
+File.WriteAllText(Path.Combine(multi, "b.fsx"), """
+    module B
+    let value = "b"
+    """);
+var multiPath = Path.Combine(dataRoot, "Multi", "multi.txt");
+var multiLoaded = host.Load(multi);
+var multiText = File.Exists(multiPath) ? File.ReadAllText(multiPath) : "(missing)";
+host.Unload("Multi");
+var multiCacheBefore = Directory.GetDirectories(cacheRoot).ToHashSet(StringComparer.OrdinalIgnoreCase);
+var multiAgain = host.Load(multi);
+var multiCacheAfter = Directory.GetDirectories(cacheRoot).ToHashSet(StringComparer.OrdinalIgnoreCase);
+host.Unload("Multi");
+checks.Add(("多文件 #load 入口命中缓存",
+    multiLoaded && multiText == "ab" && multiAgain && multiCacheAfter.SetEquals(multiCacheBefore),
+    $"{multiText}, {multiCacheBefore.Count} → {multiCacheAfter.Count}"));
+File.WriteAllText(Path.Combine(multi, "b.fsx"), """
+    module B
+    let value = "B"
+    """);
+var multiReloaded = host.Load(multi);
+var multiChanged = File.Exists(multiPath) ? File.ReadAllText(multiPath) : "(missing)";
+host.Unload("Multi");
+checks.Add(("多文件 #load 的依赖改动后重编",
+    multiReloaded && multiChanged == "aB",
+    $"{multiText} → {multiChanged}"));
+
 // 跨进程清理：新产物与暂存目录留下，过期目录只有在没人租用时才删。
 var freshPeer = Path.Combine(cacheRoot, "peer-fresh");
 var stalePeer = Path.Combine(cacheRoot, "peer-stale");

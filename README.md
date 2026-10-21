@@ -105,8 +105,8 @@ dependency is usable, disable and unload hooks arrive, the unload verifies (the 
 collected), a second load hits the cache, and a tampered artifact is detected and recompiled.
 It also uses a private fixture DLL that the host does not reference, and checks that editing only a
 `#load` helper changes the next load while both loaded instances can still be collected. Directive
-caching is covered as well: the helper participates in the cache key, an unchanged directive entry
-hits the cache, and an `#I` entry rotates directories.
+caching is covered as well: helpers and multi-file `#load` participate in the cache key, an
+unchanged directive entry hits the cache, and an `#I` entry rotates directories.
 
 ## How it reaches the host process
 
