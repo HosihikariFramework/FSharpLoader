@@ -482,6 +482,54 @@ checks.Add(("字符字面量之后的 #load 依赖改动后重编",
     charLiteralReloaded && charLiteralSecond == "second",
     $"{charLiteralFirst} → {charLiteralSecond}"));
 
+// 混合词法构造：字符字面量、引号标识符、嵌套注释、注释里的 verbatim/三引号字符串、空注释。
+var lexical = Path.Combine(pluginsRoot, "Lexical");
+Directory.CreateDirectory(lexical);
+File.WriteAllText(Path.Combine(lexical, "manifest.json"), """
+    {
+      "name": "Lexical",
+      "entry": "main.fsx",
+      "type": "hosihikari",
+      "version": "1.0.0",
+      "dependencies": [
+        { "name": "hosihikari" },
+        { "name": "hosihikari-fsharp" }
+      ],
+      "extraInfo": { "api": "2", "format_version": "1", "provider": "fsharp" }
+    }
+    """);
+File.WriteAllText(Path.Combine(lexical, "main.fsx"), """"
+    let quote = '"'
+    let apostrophe = '\''
+    let letter = 'A'
+    let ``x"(*y`` = 1
+    (* outer (* inner *) outer *)
+    (* @"(*" *)
+    (* """(*""" *)
+    (**)
+    #load "plugin.fsx"
+    """");
+File.WriteAllText(Path.Combine(lexical, "plugin.fsx"), PluginSource("LexicalPlugin", "lexical.txt", "first"));
+var lexicalPath = Path.Combine(dataRoot, "Lexical", "lexical.txt");
+var lexicalLoaded = host.Load(lexical);
+var lexicalFirst = File.Exists(lexicalPath) ? File.ReadAllText(lexicalPath) : "(missing)";
+host.Unload("Lexical");
+var lexicalCacheBefore = Directory.GetDirectories(cacheRoot).ToHashSet(StringComparer.OrdinalIgnoreCase);
+var lexicalAgain = host.Load(lexical);
+var lexicalCacheAfter = Directory.GetDirectories(cacheRoot).ToHashSet(StringComparer.OrdinalIgnoreCase);
+host.Unload("Lexical");
+checks.Add(("混合词法构造后的 #load 命中缓存",
+    lexicalLoaded && lexicalFirst == "first" && lexicalAgain
+    && lexicalCacheAfter.SetEquals(lexicalCacheBefore),
+    $"{lexicalFirst}, {lexicalCacheBefore.Count} → {lexicalCacheAfter.Count}"));
+File.WriteAllText(Path.Combine(lexical, "plugin.fsx"), PluginSource("LexicalPlugin", "lexical.txt", "second"));
+var lexicalReloaded = host.Load(lexical);
+var lexicalSecond = File.Exists(lexicalPath) ? File.ReadAllText(lexicalPath) : "(missing)";
+host.Unload("Lexical");
+checks.Add(("混合词法构造后的 #load 依赖改动后重编",
+    lexicalReloaded && lexicalSecond == "second",
+    $"{lexicalFirst} → {lexicalSecond}"));
+
 // 跨进程清理：新产物与暂存目录留下，过期目录只有在没人租用时才删。
 var freshPeer = Path.Combine(cacheRoot, "peer-fresh");
 var stalePeer = Path.Combine(cacheRoot, "peer-stale");
