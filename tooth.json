@@ -2,7 +2,7 @@
   "format_version": 3,
   "format_uuid": "289f771f-2c9a-4d73-9f3f-8492495a924d",
   "tooth": "github.com/HosihikariFramework/FSharpProvider",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "info": {
     "name": "星光 · F# Provider",
     "description": "星光框架的 F# 型插件 Provider：装载时编译脚本，交给 collectible ALC",
