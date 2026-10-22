@@ -8,7 +8,7 @@ at load and runs the result in a collectible assembly load context.
 - `src/` — loader implementation and cache.
 - `host/` — assertion host for compilation, caching, isolation, and unload.
 - `test/` — fixture packages and private dependencies.
-- `pack.ps1`, `pack.sh` — build the `hosihikari-fsharp` lip package.
+- `pack.ps1` — build the `hosihikari-fsharp` lip package.
 - `tooth.json` — lip package metadata.
 
 ## Build and verify
