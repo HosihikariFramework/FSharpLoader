@@ -24,10 +24,11 @@ The host expects sibling `PluginManager`, `Plugin.Abstractions`, and
 
 ## Invariants
 
-- The package is a plugin package named `hosihikari-fsharp`; its manifest routes on
+- The loader package is named `hosihikari-fsharp`; it routes on `extraInfo.loader: assembly` with
+  entry `Hosihikari.PluginLoader.FSharp.dll`. Source packages it handles use
   `extraInfo.loader: fsharp` and entry `main.fsx`.
 - Compile-time references follow the runtime order: framework shared layer, package-local DLLs,
-  then trusted platform assemblies.
+  the loader directory (for dependencies such as `FSharp.Core`), then trusted platform assemblies.
 - Cache keys cover source text, `#load` and local `#r` inputs, package-local DLLs, compiler version,
   and runtime version. Keep the checksum check in sync.
 - A failed load releases its ALC; one package exposes exactly one `IPlugin` type.
