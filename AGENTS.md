@@ -37,6 +37,7 @@ checkouts. `pack.ps1` calls the core packer and needs the same `PluginManager` c
 
 ## Context
 
-- [Design record](https://github.com/HosihikariFramework/Design) — GLOSSARY and ADRs.
+- Design decisions and terminology are kept by maintainers outside the public repositories; ask for
+  the relevant decision when changing lifecycle or public API.
 - [F# loader](https://github.com/HosihikariFramework/FSharpLoader) and the
   [F# plugin template](https://github.com/HosihikariFramework/FSharpPluginTemplate).
