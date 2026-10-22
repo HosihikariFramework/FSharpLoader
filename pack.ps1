@@ -5,7 +5,7 @@
     manifest. Shared-layer assemblies are excluded by the core packager from its
     canonical list (ADR-0019 / 0026 / 0036).
 
-    Requires a sibling Hosihikari.PluginManager checkout, or HOSIHIKARI_PLUGINMANAGER.
+    Requires a sibling PluginManager checkout, or HOSIHIKARI_PLUGINMANAGER.
 
     Usage: pwsh ./pack.ps1 -Version 1.0.0 -OutputRoot artifacts
 #>
@@ -31,7 +31,7 @@ New-Item -ItemType Directory -Path $root -Force | Out-Null
 $core = if ($env:HOSIHIKARI_PLUGINMANAGER) {
     $env:HOSIHIKARI_PLUGINMANAGER
 } else {
-    Join-Path (Split-Path $here -Parent) 'Hosihikari.PluginManager'
+    Join-Path (Split-Path $here -Parent) 'PluginManager'
 }
 $packTool = Join-Path $core 'tools/Pack/Hosihikari.Plugin.Pack.csproj'
 if (-not (Test-Path $packTool)) {

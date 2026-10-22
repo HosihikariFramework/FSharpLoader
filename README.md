@@ -97,7 +97,7 @@ dotnet run --project host/Hosihikari.PluginLoader.FSharp.Host.csproj -c Release
 ```
 
 The harness drives this loader through the real `PluginManager`, so sibling
-`Hosihikari.PluginManager`, the contract checkout (package `Hosihikari.Plugin.Abstractions`) and the
+`PluginManager`, the contract checkout (package `Hosihikari.Plugin.Abstractions`) and the
 McMaster fork checkouts are required. It checks these
 things: the loader is registered by a plugin package, the artifact lands in a content-addressed
 directory with its checksum and PDB, the source is compiled at load and reads the operator's override,
@@ -136,7 +136,7 @@ It assembles the loader DLL, its private dependencies and the manifest into
 `hosihikari-fsharp/`; the shared layer is not copied. Pushing a `v*` tag attaches the zip to the
 GitHub release (ADR-0036).
 
-The script invokes the core packager (`Hosihikari.PluginManager/tools/Pack`), which owns the
+The script invokes the core packager (`PluginManager/tools/Pack`), which owns the
 shared-layer list. Check out the core repository alongside this one, or set
 `HOSIHIKARI_PLUGINMANAGER`.
 

@@ -27,21 +27,21 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: HosihikariFramework/PluginAbstractions
-          path: Hosihikari.Abstractions
+          path: Plugin.Abstractions
 
       # 打包器在核心仓；共享层清单由它统一给出（ADR-0036）。
       - name: 核心打包器
         uses: actions/checkout@v7
         with:
           repository: HosihikariFramework/PluginManager
-          path: Hosihikari.PluginManager
+          path: PluginManager
 
       # 核心的 RID 优先解析需要 fork。
       - name: McMaster fork
         uses: actions/checkout@v7
         with:
           repository: HosihikariFramework/Hosihikari.McMaster.NETCore.Plugins
-          path: Hosihikari.McMaster.NETCore.Plugins
+          path: McMaster.NETCore.Plugins
 
       - uses: actions/setup-dotnet@v6
         with:

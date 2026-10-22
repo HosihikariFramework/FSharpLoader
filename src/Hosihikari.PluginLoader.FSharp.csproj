@@ -17,11 +17,11 @@
   </ItemGroup>
 
   <!-- 契约来自另一个仓，两种拿法二选一。 -->
-  <ItemGroup Condition="Exists('../../Hosihikari.Abstractions/src/Hosihikari.Plugin.Abstractions.csproj')">
-    <ProjectReference Include="../../Hosihikari.Abstractions/src/Hosihikari.Plugin.Abstractions.csproj" />
+  <ItemGroup Condition="Exists('../../Plugin.Abstractions/src/Hosihikari.Plugin.Abstractions.csproj')">
+    <ProjectReference Include="../../Plugin.Abstractions/src/Hosihikari.Plugin.Abstractions.csproj" />
   </ItemGroup>
 
-  <ItemGroup Condition="!Exists('../../Hosihikari.Abstractions/src/Hosihikari.Plugin.Abstractions.csproj')">
+  <ItemGroup Condition="!Exists('../../Plugin.Abstractions/src/Hosihikari.Plugin.Abstractions.csproj')">
     <PackageReference Include="Hosihikari.Plugin.Abstractions" Version="[1.0.0]" />
   </ItemGroup>
 

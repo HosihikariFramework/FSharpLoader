@@ -13,8 +13,8 @@
     <ProjectReference Include="../src/Hosihikari.PluginLoader.FSharp.csproj" />
     <ProjectReference Include="../test/PrivateDependency/PrivateDependency.csproj" ReferenceOutputAssembly="false" />
     <!-- 验证宿主借核心的 PluginManager；并列 checkout 才有。 -->
-    <ProjectReference Include="../../Hosihikari.PluginManager/src/Hosihikari.PluginManager.csproj"
-                      Condition="Exists('../../Hosihikari.PluginManager/src/Hosihikari.PluginManager.csproj')" />
+    <ProjectReference Include="../../PluginManager/src/Hosihikari.PluginManager.csproj"
+                      Condition="Exists('../../PluginManager/src/Hosihikari.PluginManager.csproj')" />
   </ItemGroup>
 
 </Project>
