@@ -86,7 +86,7 @@ TPA 里也从这里拿）、包根目录内的私有 DLL、这个加载器自己
 dotnet run --project host/Hosihikari.PluginLoader.FSharp.Host.csproj -c Release
 ```
 
-验证宿主借插件管理者的 `PluginManager` 驱动它，所以需要并列的 `PluginManager`、契约仓检出（契约包 `Hosihikari.Plugin.Abstractions`）与 McMaster 的 fork checkout。它验证：加载器由插件包登记、产物按内容寻址落盘且带校验和
+验证宿主借插件管理器的 `PluginManager` 驱动它，所以需要并列的 `PluginManager`、契约仓检出（契约包 `Hosihikari.Plugin.Abstractions`）与 McMaster 的 fork checkout。它验证：加载器由插件包登记、产物按内容寻址落盘且带校验和
 与 PDB、源码装载时编译并读到包外覆盖、启用钩子到达插件、宿主发的通道消息它能收到、包内自带的第三方依赖
 可用、停用与卸载钩子到达、卸载验证通过（ALC 真的被回收）、同一份源码再装载命中缓存、以及产物被改坏后
 会被发现并重编。
@@ -116,7 +116,7 @@ pwsh ./pack.ps1 -Version 1.0.0 -OutputRoot artifacts
 
 它把加载器 DLL、私有依赖与清单装进 `hosihikari-fsharp/`，共享层不随包走；打 `v*` 标签时 CI 把 zip 附到 release（ADR-0036）。
 
-打包脚本调用插件管理者打包器（`PluginManager/tools/Pack`），共享层清单由插件管理者统一给出；需要并列检出插件管理者仓，或设置 `HOSIHIKARI_PLUGINMANAGER`。
+打包脚本调用插件管理器打包器（`PluginManager/tools/Pack`），共享层清单由插件管理器统一给出；需要并列检出插件管理器仓，或设置 `HOSIHIKARI_PLUGINMANAGER`。
 
 发布后：`lip install github.com/HosihikariFramework/FSharpLoader`（先按载体装 Shim）。
 
