@@ -90,4 +90,4 @@ jobs:
           files: provider/artifacts/*.zip
           body: |
             See the release notes:
-            https://hosihikariframework.github.io/releases/
+            https://hf.srcz.one/releases/
