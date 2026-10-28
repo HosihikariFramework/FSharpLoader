@@ -1,0 +1,14 @@
+{
+  "$schema": "https://github.com/LiteLDev/lip/raw/main/schemas/manifest.v4.schema.json",
+  "formatVersion": 4,
+  "formatUuid": "0c6b977a-64ad-441f-9a29-c7f4b196882f",
+  "name": "FSharpLoader",
+  "version": "1.0.0",
+  "artifacts": [
+    {
+      "refs": [
+        "https://github.com/HosihikariFramework/FSharpLoader/releases/download/v{{version}}/hosihikari-fsharp-{{version}}.zip"
+      ]
+    }
+  ]
+}

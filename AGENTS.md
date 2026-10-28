@@ -9,7 +9,7 @@ at load and runs the result in a collectible assembly load context.
 - `host/` — assertion host for compilation, caching, isolation, and unload.
 - `test/` — fixture packages and private dependencies.
 - `pack.ps1` — build the `hosihikari-fsharp` lip package.
-- `tooth.json` — lip package metadata.
+- `manifest.json` — lip package metadata (format version 4).
 
 ## Build and verify
 
