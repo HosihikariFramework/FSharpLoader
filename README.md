@@ -133,15 +133,15 @@ pwsh ./pack.ps1 -Version 1.0.0 -OutputRoot artifacts
 ```
 
 It assembles the loader DLL, its private dependencies and the manifest into
-`hosihikari-fsharp/`; the shared layer is not copied. Pushing a `v*` tag attaches the zip to the
-GitHub release (ADR-0036).
+`plugins/hosihikari-fsharp/`; the shared layer is not copied. Pushing a `v*` tag attaches the zip
+to the GitHub release (ADR-0044).
 
 The script invokes the core packager (`PluginManager/tools/Pack`), which owns the
 shared-layer list. Check out the core repository alongside this one, or set
 `HOSIHIKARI_PLUGINMANAGER`.
 
-After release: `lip install github.com/HosihikariFramework/FSharpLoader` (install the Shim
-variant for the carrier first).
+After release: download `hosihikari-fsharp-<version>.zip` from the Releases page and extract it at
+the server root; install the Shim variant for the carrier first.
 
 ## Licence
 
