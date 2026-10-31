@@ -65,9 +65,15 @@ jobs:
       - name: 检查附件形状
         shell: bash
         working-directory: provider
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
         run: |
           set -euo pipefail
-          unzip -l artifacts/hosihikari-fsharp-*.zip | grep -q 'plugins/hosihikari-fsharp/'
+          zip="artifacts/hosihikari-fsharp-$VERSION.zip"
+          unzip -l "$zip" | grep -q 'plugins/hosihikari-fsharp/'
+          test "$(unzip -p "$zip" sei.json | jq -r .name)" = hosihikari-fsharp
+          test "$(unzip -p "$zip" sei.json | jq -r .version)" = "$VERSION"
+          test "$(unzip -p "$zip" sei.json | jq -r .layout)" = root
 
       - uses: actions/upload-artifact@v7
         with:
@@ -82,3 +88,63 @@ jobs:
           body: |
             See the release notes:
             https://hf.srcz.one/releases/
+
+      # 发布后把这一版作为 sei 提交给官方索引。跨仓提交用 SEI_SUBMISSION_TOKEN；
+      # 没配就跳过，不让发版失败。
+      - name: 提交 SeiIndex
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ secrets.SEI_SUBMISSION_TOKEN }}
+          VERSION: ${{ steps.version.outputs.value }}
+          NAME: hosihikari-fsharp
+          INDEX_REPO: Hosihikari/SeiIndex
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::notice::SEI_SUBMISSION_TOKEN 未配置，跳过 SeiIndex 提交"
+            exit 0
+          fi
+
+          asset="hosihikari-fsharp-$VERSION.zip"
+          file="provider/artifacts/$asset"
+          url="https://github.com/$GITHUB_REPOSITORY/releases/download/v$VERSION/$asset"
+          sha=$(sha256sum "$file" | cut -d' ' -f1)
+          size=$(wc -c < "$file")
+          title="[sei] $NAME $VERSION"
+
+          existing=$(gh issue list --repo "$INDEX_REPO" --state all --limit 200 \
+            --json title --jq '.[].title' | grep -Fxc "$title" || true)
+          if [ "$existing" != "0" ]; then
+            echo "::notice::SeiIndex already has an issue titled '$title'"
+            exit 0
+          fi
+
+          body=$(cat <<EOF
+          ### Sei name
+
+          $NAME
+
+          ### Version entry (JSON)
+
+          \`\`\`json
+          {
+            "version": "$VERSION",
+            "dependencies": [
+              { "name": "hosihikari", "version": "[1.2.0,2.0.0)" }
+            ],
+            "artifacts": [
+              {
+                "layout": "root",
+                "source": {
+                  "url": "$url",
+                  "sha256": "$sha",
+                  "size": $size
+                }
+              }
+            ]
+          }
+          \`\`\`
+          EOF
+          )
+
+          gh issue create --repo "$INDEX_REPO" --title "$title" --body "$body"
