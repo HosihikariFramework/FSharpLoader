@@ -87,7 +87,7 @@ jobs:
           files: provider/artifacts/*.zip
           body: |
             See the release notes:
-            https://hf.srcz.one/releases/
+            https://hoshi.srcz.one/framework/releases/
 
       # 发布后把这一版作为 sei 提交给官方索引。跨仓提交用 SEI_SUBMISSION_TOKEN；
       # 没配就跳过，不让发版失败。
