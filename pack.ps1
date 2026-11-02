@@ -37,7 +37,19 @@ $core = if ($env:HOSIHIKARI_PLUGINMANAGER) {
 }
 $packTool = Join-Path $core 'tools/Pack/Hosihikari.Plugin.Pack.csproj'
 if (-not (Test-Path $packTool)) {
-    throw "Core packer not found: $packTool. Run with a sibling Hosihikari.PluginManager checkout, or set HOSIHIKARI_PLUGINMANAGER."
+$packerMessages = @{
+    ar = 'لم يتم العثور على أداة التغليف الأساسية: {0}. شغّل من نسخة تحتوي على Hosihikari.PluginManager بجانبها، أو اضبط HOSIHIKARI_PLUGINMANAGER.'
+    fr = 'Outil de packaging principal introuvable : {0}. Lancez depuis une copie avec Hosihikari.PluginManager à côté, ou définissez HOSIHIKARI_PLUGINMANAGER.'
+    ru = 'Основной упаковщик не найден: {0}. Запустите из копии с соседним Hosihikari.PluginManager или задайте HOSIHIKARI_PLUGINMANAGER.'
+    es = 'No se encontró el empaquetador principal: {0}. Ejecuta desde una copia con Hosihikari.PluginManager al lado, o define HOSIHIKARI_PLUGINMANAGER.'
+    zh = '找不到核心打包器：{0}。请并列检出 Hosihikari.PluginManager，或设置 HOSIHIKARI_PLUGINMANAGER。'
+}
+$packerLanguage = [System.Globalization.CultureInfo]::CurrentUICulture.TwoLetterISOLanguageName
+$packerFormat = $packerMessages[$packerLanguage]
+if (-not $packerFormat) {
+    $packerFormat = 'Core packer not found: {0}. Run with a sibling Hosihikari.PluginManager checkout, or set HOSIHIKARI_PLUGINMANAGER.'
+}
+throw ($packerFormat -f $packTool)
 }
 
 $manifest = Join-Path ([System.IO.Path]::GetTempPath()) "hosihikari-$name-$Version-manifest.json"
