@@ -49,7 +49,7 @@ internal sealed class ScriptPlugin(IPluginContext context) : IPlugin
             }
             catch (Exception ex)
             {
-                context.Logger.LogError(ex, "脚本登记的 {Hook} 钩子抛出", hook);
+                context.Logger.LogError(ex, "{Message}", LoaderText.Get("HookThrew", hook));
             }
         }
     }

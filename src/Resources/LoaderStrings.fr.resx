@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="EntryMissing" xml:space="preserve">
+    <value>l&#x27;entrée de manifeste {0} n&#x27;existe pas</value>
+  </data>
+  <data name="CacheDeleteFailed" xml:space="preserve">
+    <value>impossible de supprimer le répertoire de cache endommagé {0}</value>
+  </data>
+  <data name="CacheUnavailable" xml:space="preserve">
+    <value>le répertoire de cache {0} est inutilisable ; recompilation</value>
+  </data>
+  <data name="CacheLeaseFailed" xml:space="preserve">
+    <value>impossible de louer le répertoire de cache {0}</value>
+  </data>
+  <data name="EntryTypeCount" xml:space="preserve">
+    <value>{0} nécessite exactement un type implémentant IPlugin avec un constructeur sans paramètre ; trouvé {1}</value>
+  </data>
+  <data name="EntryCreateFailed" xml:space="preserve">
+    <value>impossible de créer une instance de {0}</value>
+  </data>
+  <data name="ArtifactLoadFailed" xml:space="preserve">
+    <value>échec du chargement de l&#x27;artefact pour {0}</value>
+  </data>
+  <data name="ArtifactReclaimFailed" xml:space="preserve">
+    <value>la récupération de l&#x27;artefact défaillant de {0} a levé une exception</value>
+  </data>
+  <data name="CompileFailed" xml:space="preserve">
+    <value>la compilation de {0} a échoué</value>
+  </data>
+  <data name="ScriptChanged" xml:space="preserve">
+    <value>{0} ou l&#x27;une de ses dépendances de directive a changé pendant la compilation ; cet artefact est abandonné</value>
+  </data>
+  <data name="HookThrew" xml:space="preserve">
+    <value>Un hook {0} enregistré par le script a levé une exception</value>
+  </data>
+</root>

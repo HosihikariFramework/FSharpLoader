@@ -30,6 +30,8 @@ checkouts. `pack.ps1` calls the core packer and needs the same `PluginManager` c
   the loader directory (for dependencies such as `FSharp.Core`), then trusted platform assemblies.
 - Cache keys cover source text, `#load` and local `#r` inputs, package-local DLLs, compiler version,
   and runtime version. Keep the checksum check in sync.
+- Operator-facing messages come from `src/Resources/LoaderStrings.resx` (neutral English) and
+  `LoaderStrings.zh-Hans.resx`; exception messages stay as written (ADR-0048).
 - A failed load releases its ALC. After excluding abstract/interface types and implementations
   without a public parameterless constructor, a package exposes exactly one `IPlugin` candidate.
 - Public default branches are protected. Work on a branch, open a pull request, and squash merge.

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="EntryMissing" xml:space="preserve">
+    <value>مدخل البيان {0} غير موجود</value>
+  </data>
+  <data name="CacheDeleteFailed" xml:space="preserve">
+    <value>تعذّر حذف دليل التخزين المؤقت التالف {0}</value>
+  </data>
+  <data name="CacheUnavailable" xml:space="preserve">
+    <value>دليل التخزين المؤقت {0} غير صالح؛ إعادة الترجمة</value>
+  </data>
+  <data name="CacheLeaseFailed" xml:space="preserve">
+    <value>تعذّر استئجار دليل التخزين المؤقت {0}</value>
+  </data>
+  <data name="EntryTypeCount" xml:space="preserve">
+    <value>{0} يحتاج إلى نوع واحد بالضبط ينفّذ IPlugin وله منشئ بلا معاملات؛ وُجد {1}</value>
+  </data>
+  <data name="EntryCreateFailed" xml:space="preserve">
+    <value>تعذّر إنشاء نسخة من {0}</value>
+  </data>
+  <data name="ArtifactLoadFailed" xml:space="preserve">
+    <value>فشل تحميل الناتج الخاص بـ {0}</value>
+  </data>
+  <data name="ArtifactReclaimFailed" xml:space="preserve">
+    <value>رمى استرداد الناتج الفاشل الخاص بـ {0} استثناءً</value>
+  </data>
+  <data name="CompileFailed" xml:space="preserve">
+    <value>فشلت ترجمة {0}</value>
+  </data>
+  <data name="ScriptChanged" xml:space="preserve">
+    <value>تغيّر {0} أو إحدى تبعيات توجيهاته أثناء الترجمة؛ يتم تجاهل هذا الناتج</value>
+  </data>
+  <data name="HookThrew" xml:space="preserve">
+    <value>رمى خطاف {0} المسجّل بواسطة البرنامج النصي استثناءً</value>
+  </data>
+</root>
