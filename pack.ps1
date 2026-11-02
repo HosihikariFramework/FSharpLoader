@@ -37,7 +37,7 @@ $core = if ($env:HOSIHIKARI_PLUGINMANAGER) {
 }
 $packTool = Join-Path $core 'tools/Pack/Hosihikari.Plugin.Pack.csproj'
 if (-not (Test-Path $packTool)) {
-    throw "找不到核心打包器：$packTool。请并列检出 Hosihikari.PluginManager，或设置 HOSIHIKARI_PLUGINMANAGER。"
+    throw "Core packer not found: $packTool. Run with a sibling Hosihikari.PluginManager checkout, or set HOSIHIKARI_PLUGINMANAGER."
 }
 
 $manifest = Join-Path ([System.IO.Path]::GetTempPath()) "hosihikari-$name-$Version-manifest.json"
