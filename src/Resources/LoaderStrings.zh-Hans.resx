@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="EntryMissing" xml:space="preserve">
+    <value>清单 entry 指向的 {0} 不存在</value>
+  </data>
+  <data name="CacheDeleteFailed" xml:space="preserve">
+    <value>清不掉损坏的缓存目录 {0}</value>
+  </data>
+  <data name="CacheUnavailable" xml:space="preserve">
+    <value>缓存目录 {0} 已不可用，重编</value>
+  </data>
+  <data name="CacheLeaseFailed" xml:space="preserve">
+    <value>无法租用缓存目录 {0}</value>
+  </data>
+  <data name="EntryTypeCount" xml:space="preserve">
+    <value>{0} 需要恰好一个实现 IPlugin 且有无参构造的类型，实际 {1} 个</value>
+  </data>
+  <data name="EntryCreateFailed" xml:space="preserve">
+    <value>造不出 {0} 的实例</value>
+  </data>
+  <data name="ArtifactLoadFailed" xml:space="preserve">
+    <value>装载 {0} 的产物失败</value>
+  </data>
+  <data name="ArtifactReclaimFailed" xml:space="preserve">
+    <value>回收 {0} 的失败产物时抛出</value>
+  </data>
+  <data name="ScriptChanged" xml:space="preserve">
+    <value>{0} 或其指令依赖在编译期间发生变化，丢弃本次产物</value>
+  </data>
+  <data name="CompileFailed" xml:space="preserve">
+    <value>编译 {0} 失败</value>
+  </data>
+  <data name="HookThrew" xml:space="preserve">
+    <value>脚本登记的 {0} 钩子抛出</value>
+  </data>
+</root>

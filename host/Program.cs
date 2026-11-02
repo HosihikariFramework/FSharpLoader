@@ -1,8 +1,13 @@
+using System.Globalization;
 using System.Runtime.Loader;
 using Hosihikari;
 using Hosihikari.PluginLoader.FSharp;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+
+// 断言与日志引用中文资源；把 UI 文化钉在 zh-Hans，让每台 runner 与后台线程一致。
+CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.GetCultureInfo("zh-Hans");
+CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("zh-Hans");
 
 // 载体中立检查（ADR-0015）：普通 .NET 控制台驱动核心，不碰 BDS、Shim、任何载体。
 //

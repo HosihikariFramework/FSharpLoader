@@ -50,7 +50,7 @@ public sealed class FSharpPluginLoader : IPluginLoader
         var entry = Path.Combine(packageDirectory, manifest.EntryPath);
         if (!File.Exists(entry))
         {
-            context.Logger.LogError("清单 entry 指向的 {Entry} 不存在", manifest.EntryPath);
+            context.Logger.LogError("{Message}", LoaderText.Get("EntryMissing", manifest.EntryPath));
             return null;
         }
 
@@ -85,7 +85,10 @@ public sealed class FSharpPluginLoader : IPluginLoader
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
-                    context.Logger.LogError(ex, "清不掉损坏的缓存目录 {Directory}", cacheDirectory);
+                    context.Logger.LogError(
+                        ex,
+                        "{Message}",
+                        LoaderText.Get("CacheDeleteFailed", cacheDirectory));
                     return null;
                 }
             }
@@ -105,7 +108,10 @@ public sealed class FSharpPluginLoader : IPluginLoader
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             // 另一个进程可能刚把旧缓存清掉；重编一次再租。
-            context.Logger.LogWarning(ex, "缓存目录 {Directory} 已不可用，重编", cacheDirectory);
+            context.Logger.LogWarning(
+                ex,
+                "{Message}",
+                LoaderText.Get("CacheUnavailable", cacheDirectory));
             if (!Compile(entry, packageDirectory, cacheDirectory, manifest.Name, context, analysis))
             {
                 return null;
@@ -117,7 +123,10 @@ public sealed class FSharpPluginLoader : IPluginLoader
             }
             catch (Exception retry) when (retry is IOException or UnauthorizedAccessException)
             {
-                context.Logger.LogError(retry, "无法租用缓存目录 {Directory}", cacheDirectory);
+                context.Logger.LogError(
+                    retry,
+                    "{Message}",
+                    LoaderText.Get("CacheLeaseFailed", cacheDirectory));
                 return null;
             }
         }
@@ -139,16 +148,17 @@ public sealed class FSharpPluginLoader : IPluginLoader
             if (candidates.Length != 1)
             {
                 context.Logger.LogError(
-                    "{Assembly} 需要恰好一个实现 IPlugin 且有无参构造的类型，实际 {Count} 个",
-                    assemblyPath,
-                    candidates.Length);
+                    "{Message}",
+                    LoaderText.Get("EntryTypeCount", assemblyPath, candidates.Length));
                 loadContext.Unload();
                 return null;
             }
 
             if (Activator.CreateInstance(candidates[0]) is not IPlugin plugin)
             {
-                context.Logger.LogError("造不出 {Type} 的实例", candidates[0].FullName);
+                context.Logger.LogError(
+                    "{Message}",
+                    LoaderText.Get("EntryCreateFailed", candidates[0].FullName));
                 loadContext.Unload();
                 return null;
             }
@@ -157,7 +167,7 @@ public sealed class FSharpPluginLoader : IPluginLoader
         }
         catch (Exception ex)
         {
-            context.Logger.LogError(ex, "装载 {Name} 的产物失败", manifest.Name);
+            context.Logger.LogError(ex, "{Message}", LoaderText.Get("ArtifactLoadFailed", manifest.Name));
             if (loadContext is null)
             {
                 lease.Dispose();
@@ -170,7 +180,10 @@ public sealed class FSharpPluginLoader : IPluginLoader
                 }
                 catch (Exception unloadEx)
                 {
-                    context.Logger.LogWarning(unloadEx, "回收 {Name} 的失败产物时抛出", manifest.Name);
+                    context.Logger.LogWarning(
+                        unloadEx,
+                        "{Message}",
+                        LoaderText.Get("ArtifactReclaimFailed", manifest.Name));
                 }
             }
 
@@ -908,7 +921,9 @@ public sealed class FSharpPluginLoader : IPluginLoader
             // 宁可这次失败，也不要把 B 存到 A 的键下。
             if (!FilesUnchanged(analysis))
             {
-                context.Logger.LogWarning("{Script} 或其指令依赖在编译期间发生变化，丢弃本次产物", scriptPath);
+                context.Logger.LogWarning(
+                    "{Message}",
+                    LoaderText.Get("ScriptChanged", scriptPath));
                 return false;
             }
 
@@ -935,7 +950,7 @@ public sealed class FSharpPluginLoader : IPluginLoader
         catch (Exception ex)
         {
             // 编译期出错只让这一个插件倒下（ADR-0009）。
-            context.Logger.LogError(ex, "编译 {Script} 失败", scriptPath);
+            context.Logger.LogError(ex, "{Message}", LoaderText.Get("CompileFailed", scriptPath));
             return false;
         }
         finally
@@ -997,7 +1012,10 @@ public sealed class FSharpPluginLoader : IPluginLoader
         // 编译器也可能只抛异常、不给诊断 —— 那也要说出来，否则失败就成了哑的。
         if (failure.Value is { } error)
         {
-            context.Logger.LogError(error, "编译 {Script} 失败", scriptPath);
+            context.Logger.LogError(
+                error,
+                "{Message}",
+                LoaderText.Get("CompileFailed", scriptPath));
         }
 
         return false;

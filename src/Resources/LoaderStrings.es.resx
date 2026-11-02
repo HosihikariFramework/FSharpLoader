@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="EntryMissing" xml:space="preserve">
+    <value>la entrada del manifiesto {0} no existe</value>
+  </data>
+  <data name="CacheDeleteFailed" xml:space="preserve">
+    <value>no se pudo eliminar el directorio de caché dañado {0}</value>
+  </data>
+  <data name="CacheUnavailable" xml:space="preserve">
+    <value>el directorio de caché {0} no es utilizable; se recompila</value>
+  </data>
+  <data name="CacheLeaseFailed" xml:space="preserve">
+    <value>no se pudo arrendar el directorio de caché {0}</value>
+  </data>
+  <data name="EntryTypeCount" xml:space="preserve">
+    <value>{0} necesita exactamente un tipo que implemente IPlugin con un constructor sin parámetros; se encontraron {1}</value>
+  </data>
+  <data name="EntryCreateFailed" xml:space="preserve">
+    <value>no se pudo crear una instancia de {0}</value>
+  </data>
+  <data name="ArtifactLoadFailed" xml:space="preserve">
+    <value>no se pudo cargar el artefacto de {0}</value>
+  </data>
+  <data name="ArtifactReclaimFailed" xml:space="preserve">
+    <value>la recuperación del artefacto fallido de {0} lanzó una excepción</value>
+  </data>
+  <data name="CompileFailed" xml:space="preserve">
+    <value>no se pudo compilar {0}</value>
+  </data>
+  <data name="ScriptChanged" xml:space="preserve">
+    <value>{0} o una de sus dependencias de directivas cambió durante la compilación; se descarta este artefacto</value>
+  </data>
+  <data name="HookThrew" xml:space="preserve">
+    <value>Un hook {0} registrado por el script lanzó una excepción</value>
+  </data>
+</root>

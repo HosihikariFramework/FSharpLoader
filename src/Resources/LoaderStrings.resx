@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="EntryMissing" xml:space="preserve">
+    <value>manifest entry {0} does not exist</value>
+  </data>
+  <data name="CacheDeleteFailed" xml:space="preserve">
+    <value>Could not delete the damaged cache directory {0}</value>
+  </data>
+  <data name="CacheUnavailable" xml:space="preserve">
+    <value>Cache directory {0} is unusable; recompiling</value>
+  </data>
+  <data name="CacheLeaseFailed" xml:space="preserve">
+    <value>Could not lease cache directory {0}</value>
+  </data>
+  <data name="EntryTypeCount" xml:space="preserve">
+    <value>{0} needs exactly one type implementing IPlugin with a parameterless constructor; found {1}</value>
+  </data>
+  <data name="EntryCreateFailed" xml:space="preserve">
+    <value>Could not create an instance of {0}</value>
+  </data>
+  <data name="ArtifactLoadFailed" xml:space="preserve">
+    <value>Failed to load the artifact for {0}</value>
+  </data>
+  <data name="ArtifactReclaimFailed" xml:space="preserve">
+    <value>Reclaiming the failed artifact for {0} threw</value>
+  </data>
+  <data name="ScriptChanged" xml:space="preserve">
+    <value>{0} or one of its directive dependencies changed during compilation; discarding this artifact</value>
+  </data>
+  <data name="CompileFailed" xml:space="preserve">
+    <value>Compiling {0} failed</value>
+  </data>
+  <data name="HookThrew" xml:space="preserve">
+    <value>A {0} hook registered by the script threw</value>
+  </data>
+</root>
