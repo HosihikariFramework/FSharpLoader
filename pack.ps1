@@ -72,12 +72,21 @@ try {
 # 包根的 sei.json 是分发元数据，安装时被跳过；加载器依赖核心的 1.x 兼容线。
 $sei = Join-Path $root 'sei.json'
 [ordered]@{
-    schemaVersion = 1
-    name          = $name
-    version       = $Version
-    dependencies  = @(@{ name = 'hosihikari'; version = '[1.2.0,2.0.0)' })
-    layout        = 'root'
-} | ConvertTo-Json -Depth 4 | Set-Content $sei -Encoding utf8NoBOM
+    schemaVersion  = 2
+    name           = $name
+    version        = $Version
+    dependencies   = @(@{ name = 'hosihikari'; version = '[1.2.0,2.0.0)' })
+    prerequisites  = @()
+    optionalPeers  = @()
+    conflicts      = @()
+    artifact       = [ordered]@{
+        dependencies  = @()
+        prerequisites = @()
+        optionalPeers = @()
+        conflicts     = @()
+        layout        = 'root'
+    }
+} | ConvertTo-Json -Depth 6 | Set-Content $sei -Encoding utf8NoBOM
 
 $zip = Join-Path $root "$name-$Version.zip"
 if (Test-Path $zip) { Remove-Item $zip -Force }
