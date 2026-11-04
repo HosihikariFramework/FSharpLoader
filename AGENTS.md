@@ -17,7 +17,7 @@ dotnet run --project host/Hosihikari.PluginLoader.FSharp.Host.csproj -c Release 
 pwsh ./pack.ps1 -Version 1.0.0 -OutputRoot artifacts
 ```
 
-The host expects sibling `PluginManager`, `Plugin.Abstractions`, and `McMaster.NETCore.Plugins`
+The host expects sibling `PluginManager`, `Plugin.Abstractions`, and `DotNetCorePlugins`
 checkouts. `pack.ps1` calls the core packer and needs the same `PluginManager` checkout.
 
 ## Invariants
