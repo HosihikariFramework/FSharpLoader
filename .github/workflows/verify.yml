@@ -30,6 +30,8 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: HosihikariFramework/PluginAbstractions
+          # 配对的契约 PR 分支：新 API 还没发布。
+          ref: feat/shared-list-and-templates
           path: Plugin.Abstractions
 
       # 本机库的 RID 优先解析需要 fork；核心按 ../.. 找它。
