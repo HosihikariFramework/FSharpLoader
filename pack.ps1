@@ -72,10 +72,10 @@ try {
 # 包根的 sei.json 是分发元数据，安装时被跳过；加载器依赖核心的 1.x 兼容线。
 $sei = Join-Path $root 'sei.json'
 [ordered]@{
-    schemaVersion  = 2
+    schemaVersion  = 3
     name           = $name
     version        = $Version
-    dependencies   = @(@{ name = 'hosihikari'; version = '[1.2.0,2.0.0)' })
+    dependencies   = @(@{ name = 'hosihikari'; version = '[1.3.0,2.0.0)' })
     prerequisites  = @()
     optionalPeers  = @()
     conflicts      = @()
