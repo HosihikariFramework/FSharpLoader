@@ -20,23 +20,25 @@ internal sealed class ScriptPlugin(IPluginContext context) : IPlugin
     public void OnUnloadHook(Action callback) => _unload.Add(callback);
 
     /// <summary>脚本从头跑到尾，装载阶段没有额外的钩子要调（ADR-0008）。</summary>
-    public void OnLoad(IPluginContext context)
-    {
-    }
+    public ValueTask OnLoad(IPluginContext context, CancellationToken cancellationToken) => ValueTask.CompletedTask;
 
-    public PluginHookResult OnEnable()
+    public ValueTask<PluginHookResult> OnEnable(CancellationToken cancellationToken)
     {
         Invoke(_enable, "onEnable");
-        return PluginHookResult.Allow();
+        return ValueTask.FromResult(PluginHookResult.Allow());
     }
 
-    public PluginHookResult OnDisable()
+    public ValueTask<PluginHookResult> OnDisable(CancellationToken cancellationToken)
     {
         Invoke(_disable, "onDisable");
-        return PluginHookResult.Allow();
+        return ValueTask.FromResult(PluginHookResult.Allow());
     }
 
-    public void OnUnload() => Invoke(_unload, "onUnload");
+    public ValueTask OnUnload(CancellationToken cancellationToken)
+    {
+        Invoke(_unload, "onUnload");
+        return ValueTask.CompletedTask;
+    }
 
     /// <summary>一个钩子抛出不影响其余的，也不越过契约边界（ADR-0009 / 0014）。</summary>
     private void Invoke(List<Action> callbacks, string hook)

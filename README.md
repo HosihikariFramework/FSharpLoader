@@ -33,7 +33,7 @@ plugins/Hello/
         { "name": "hosihikari" },
         { "name": "hosihikari-fsharp" }
       ],
-      "extraInfo": { "api_version": "2", "manifest_version": "1", "loader": "fsharp" }
+      "extraInfo": { "api_version": "3", "manifest_version": "1", "loader": "fsharp" }
     }
   main.fsx
   Hello.conf          ← the author's defaults, shipped with the package

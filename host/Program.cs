@@ -189,7 +189,7 @@ File.WriteAllText(Path.Combine(multi, "manifest.json"), """
         { "name": "hosihikari" },
         { "name": "hosihikari-fsharp" }
       ],
-      "extraInfo": { "api_version": "2", "manifest_version": "1", "loader": "fsharp" }
+      "extraInfo": { "api_version": "3", "manifest_version": "1", "loader": "fsharp" }
     }
     """);
 File.WriteAllText(Path.Combine(multi, "main.fsx"), """
@@ -201,11 +201,12 @@ File.WriteAllText(Path.Combine(multi, "main.fsx"), """
 
     type MultiPlugin() =
         interface IPlugin with
-            member this.OnLoad(context: IPluginContext) =
+            member this.OnLoad(context: IPluginContext, cancellationToken: System.Threading.CancellationToken) : System.Threading.Tasks.ValueTask =
                 File.WriteAllText(Path.Combine(context.DataDirectory, "multi.txt"), A.value + B.value)
-            member this.OnEnable() = PluginHookResult.Allow()
-            member this.OnDisable() = PluginHookResult.Allow()
-            member this.OnUnload() = ()
+                System.Threading.Tasks.ValueTask()
+            member this.OnEnable(cancellationToken: System.Threading.CancellationToken) : System.Threading.Tasks.ValueTask<PluginHookResult> = System.Threading.Tasks.ValueTask.FromResult(PluginHookResult.Allow())
+            member this.OnDisable(cancellationToken: System.Threading.CancellationToken) : System.Threading.Tasks.ValueTask<PluginHookResult> = System.Threading.Tasks.ValueTask.FromResult(PluginHookResult.Allow())
+            member this.OnUnload(cancellationToken: System.Threading.CancellationToken) : System.Threading.Tasks.ValueTask = System.Threading.Tasks.ValueTask()
     """);
 File.WriteAllText(Path.Combine(multi, "a.fsx"), """
     module A
@@ -254,7 +255,7 @@ File.WriteAllText(Path.Combine(comment, "manifest.json"), """
         { "name": "hosihikari" },
         { "name": "hosihikari-fsharp" }
       ],
-      "extraInfo": { "api_version": "2", "manifest_version": "1", "loader": "fsharp" }
+      "extraInfo": { "api_version": "3", "manifest_version": "1", "loader": "fsharp" }
     }
     """);
 File.WriteAllText(Path.Combine(comment, "main.fsx"), "(* entry *) #load \"plugin.fsx\"\n");
@@ -292,7 +293,7 @@ File.WriteAllText(Path.Combine(stringy, "manifest.json"), """
         { "name": "hosihikari" },
         { "name": "hosihikari-fsharp" }
       ],
-      "extraInfo": { "api_version": "2", "manifest_version": "1", "loader": "fsharp" }
+      "extraInfo": { "api_version": "3", "manifest_version": "1", "loader": "fsharp" }
     }
     """);
 File.WriteAllText(Path.Combine(stringy, "main.fsx"), """"
@@ -335,7 +336,7 @@ File.WriteAllText(Path.Combine(operatorDir, "manifest.json"), """
         { "name": "hosihikari" },
         { "name": "hosihikari-fsharp" }
       ],
-      "extraInfo": { "api_version": "2", "manifest_version": "1", "loader": "fsharp" }
+      "extraInfo": { "api_version": "3", "manifest_version": "1", "loader": "fsharp" }
     }
     """);
 File.WriteAllText(Path.Combine(operatorDir, "main.fsx"), """
@@ -377,7 +378,7 @@ File.WriteAllText(Path.Combine(commentString, "manifest.json"), """
         { "name": "hosihikari" },
         { "name": "hosihikari-fsharp" }
       ],
-      "extraInfo": { "api_version": "2", "manifest_version": "1", "loader": "fsharp" }
+      "extraInfo": { "api_version": "3", "manifest_version": "1", "loader": "fsharp" }
     }
     """);
 File.WriteAllText(Path.Combine(commentString, "main.fsx"), """
@@ -420,7 +421,7 @@ File.WriteAllText(Path.Combine(quoted, "manifest.json"), """
         { "name": "hosihikari" },
         { "name": "hosihikari-fsharp" }
       ],
-      "extraInfo": { "api_version": "2", "manifest_version": "1", "loader": "fsharp" }
+      "extraInfo": { "api_version": "3", "manifest_version": "1", "loader": "fsharp" }
     }
     """);
 File.WriteAllText(Path.Combine(quoted, "main.fsx"), """
@@ -461,7 +462,7 @@ File.WriteAllText(Path.Combine(charLiteral, "manifest.json"), """
         { "name": "hosihikari" },
         { "name": "hosihikari-fsharp" }
       ],
-      "extraInfo": { "api_version": "2", "manifest_version": "1", "loader": "fsharp" }
+      "extraInfo": { "api_version": "3", "manifest_version": "1", "loader": "fsharp" }
     }
     """);
 File.WriteAllText(Path.Combine(charLiteral, "main.fsx"), """
@@ -504,7 +505,7 @@ File.WriteAllText(Path.Combine(lexical, "manifest.json"), """
         { "name": "hosihikari" },
         { "name": "hosihikari-fsharp" }
       ],
-      "extraInfo": { "api_version": "2", "manifest_version": "1", "loader": "fsharp" }
+      "extraInfo": { "api_version": "3", "manifest_version": "1", "loader": "fsharp" }
     }
     """);
 File.WriteAllText(Path.Combine(lexical, "main.fsx"), """"
@@ -552,7 +553,7 @@ File.WriteAllText(Path.Combine(tpaMiss, "manifest.json"), """
         { "name": "hosihikari" },
         { "name": "hosihikari-fsharp" }
       ],
-      "extraInfo": { "api_version": "2", "manifest_version": "1", "loader": "fsharp" }
+      "extraInfo": { "api_version": "3", "manifest_version": "1", "loader": "fsharp" }
     }
     """);
 File.WriteAllText(Path.Combine(tpaMiss, "main.fsx"), PluginSource("TpaPlugin", "tpa.txt", "ok"));
@@ -631,7 +632,7 @@ File.WriteAllText(Path.Combine(broken, "manifest.json"), """
         { "name": "hosihikari" },
         { "name": "hosihikari-fsharp" }
       ],
-      "extraInfo": { "api_version": "2", "manifest_version": "1", "loader": "fsharp" }
+      "extraInfo": { "api_version": "3", "manifest_version": "1", "loader": "fsharp" }
     }
     """);
 File.WriteAllText(Path.Combine(broken, "main.fsx"), """
@@ -640,10 +641,10 @@ File.WriteAllText(Path.Combine(broken, "main.fsx"), """
     type BrokenPlugin() =
         do failwith "constructor"
         interface IPlugin with
-            member this.OnLoad(context: IPluginContext) = ()
-            member this.OnEnable() = PluginHookResult.Allow()
-            member this.OnDisable() = PluginHookResult.Allow()
-            member this.OnUnload() = ()
+            member this.OnLoad(context: IPluginContext, cancellationToken: System.Threading.CancellationToken) : System.Threading.Tasks.ValueTask = System.Threading.Tasks.ValueTask()
+            member this.OnEnable(cancellationToken: System.Threading.CancellationToken) : System.Threading.Tasks.ValueTask<PluginHookResult> = System.Threading.Tasks.ValueTask.FromResult(PluginHookResult.Allow())
+            member this.OnDisable(cancellationToken: System.Threading.CancellationToken) : System.Threading.Tasks.ValueTask<PluginHookResult> = System.Threading.Tasks.ValueTask.FromResult(PluginHookResult.Allow())
+            member this.OnUnload(cancellationToken: System.Threading.CancellationToken) : System.Threading.Tasks.ValueTask = System.Threading.Tasks.ValueTask()
     """);
 for (var i = 0; i < 10; i++)
 {
@@ -677,7 +678,7 @@ File.WriteAllText(Path.Combine(nested, "manifest.json"), """
         { "name": "hosihikari" },
         { "name": "hosihikari-fsharp" }
       ],
-      "extraInfo": { "api_version": "2", "manifest_version": "1", "loader": "fsharp" }
+      "extraInfo": { "api_version": "3", "manifest_version": "1", "loader": "fsharp" }
     }
     """);
 File.WriteAllText(Path.Combine(nested, "src", "main.fsx"), """
@@ -686,11 +687,12 @@ File.WriteAllText(Path.Combine(nested, "src", "main.fsx"), """
 
     type NestedPlugin() =
         interface IPlugin with
-            member this.OnLoad(context: IPluginContext) =
+            member this.OnLoad(context: IPluginContext, cancellationToken: System.Threading.CancellationToken) : System.Threading.Tasks.ValueTask =
                 File.WriteAllText(Path.Combine(context.DataDirectory, "nested.txt"), ProviderPrivateDependency.Marker.Value)
-            member this.OnEnable() = PluginHookResult.Allow()
-            member this.OnDisable() = PluginHookResult.Allow()
-            member this.OnUnload() = ()
+                System.Threading.Tasks.ValueTask()
+            member this.OnEnable(cancellationToken: System.Threading.CancellationToken) : System.Threading.Tasks.ValueTask<PluginHookResult> = System.Threading.Tasks.ValueTask.FromResult(PluginHookResult.Allow())
+            member this.OnDisable(cancellationToken: System.Threading.CancellationToken) : System.Threading.Tasks.ValueTask<PluginHookResult> = System.Threading.Tasks.ValueTask.FromResult(PluginHookResult.Allow())
+            member this.OnUnload(cancellationToken: System.Threading.CancellationToken) : System.Threading.Tasks.ValueTask = System.Threading.Tasks.ValueTask()
     """);
 var nestedLoaded = host.Load(nested);
 var nestedFile = Path.Combine(dataRoot, "Nested", "nested.txt");
@@ -722,11 +724,12 @@ static string PluginSource(string typeName, string file, string value) => $$"""
 
     type {{typeName}}() =
         interface IPlugin with
-            member this.OnLoad(context: IPluginContext) =
+            member this.OnLoad(context: IPluginContext, cancellationToken: System.Threading.CancellationToken) : System.Threading.Tasks.ValueTask =
                 File.WriteAllText(Path.Combine(context.DataDirectory, "{{file}}"), "{{value}}")
-            member this.OnEnable() = PluginHookResult.Allow()
-            member this.OnDisable() = PluginHookResult.Allow()
-            member this.OnUnload() = ()
+                System.Threading.Tasks.ValueTask()
+            member this.OnEnable(cancellationToken: System.Threading.CancellationToken) : System.Threading.Tasks.ValueTask<PluginHookResult> = System.Threading.Tasks.ValueTask.FromResult(PluginHookResult.Allow())
+            member this.OnDisable(cancellationToken: System.Threading.CancellationToken) : System.Threading.Tasks.ValueTask<PluginHookResult> = System.Threading.Tasks.ValueTask.FromResult(PluginHookResult.Allow())
+            member this.OnUnload(cancellationToken: System.Threading.CancellationToken) : System.Threading.Tasks.ValueTask = System.Threading.Tasks.ValueTask()
     """;
 
 string? Artifact()
@@ -777,7 +780,7 @@ void StageLoaderPackage()
           "type": "hosihikari",
           "version": "0.1.0",
           "dependencies": [ { "name": "hosihikari" } ],
-          "extraInfo": { "api_version": "2", "manifest_version": "1", "loader": "assembly" }
+          "extraInfo": { "api_version": "3", "manifest_version": "1", "loader": "assembly" }
         }
         """);
 
@@ -815,7 +818,7 @@ bool StageScriptPackage()
             { "name": "hosihikari" },
             { "name": "hosihikari-fsharp" }
           ],
-          "extraInfo": { "api_version": "2", "manifest_version": "1", "loader": "fsharp" }
+          "extraInfo": { "api_version": "3", "manifest_version": "1", "loader": "fsharp" }
         }
         """);
 
@@ -846,7 +849,7 @@ bool StageScriptPackage()
             let mutable dataDirectory = ""
 
             interface IPlugin with
-                member this.OnLoad(context: IPluginContext) =
+                member this.OnLoad(context: IPluginContext, cancellationToken: System.Threading.CancellationToken) : System.Threading.Tasks.ValueTask =
                     dataDirectory <- context.DataDirectory
                     let greeting = context.Configuration.["greeting"]
                     File.WriteAllText(Path.Combine(dataDirectory, "body.txt"), "body:" + greeting)
@@ -863,14 +866,16 @@ bool StageScriptPackage()
                             let path = Path.Combine(dataDirectory, "ping.txt")
                             File.WriteAllText(path, "ping:" + message.Json))
                     |> ignore
-                member this.OnEnable() =
+                    System.Threading.Tasks.ValueTask()
+                member this.OnEnable(cancellationToken: System.Threading.CancellationToken) =
                     File.WriteAllText(Path.Combine(dataDirectory, "enabled.txt"), "enabled")
-                    PluginHookResult.Allow()
-                member this.OnDisable() =
+                    System.Threading.Tasks.ValueTask.FromResult(PluginHookResult.Allow())
+                member this.OnDisable(cancellationToken: System.Threading.CancellationToken) =
                     File.WriteAllText(Path.Combine(dataDirectory, "disabled.txt"), "disabled")
-                    PluginHookResult.Allow()
-                member this.OnUnload() =
+                    System.Threading.Tasks.ValueTask.FromResult(PluginHookResult.Allow())
+                member this.OnUnload(cancellationToken: System.Threading.CancellationToken) =
                     File.WriteAllText(Path.Combine(dataDirectory, "unloaded.txt"), "unloaded")
+                    System.Threading.Tasks.ValueTask()
         """);
 
     return nativeStaged;

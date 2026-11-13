@@ -60,7 +60,7 @@ try {
         type         = 'hosihikari'
         version      = $Version
         dependencies = @(@{ name = 'hosihikari' })
-        extraInfo    = [ordered]@{ api_version = '2'; manifest_version = '1'; loader = 'assembly' }
+        extraInfo    = [ordered]@{ api_version = '3'; manifest_version = '1'; loader = 'assembly' }
     } | ConvertTo-Json -Depth 6 | Set-Content $manifest -Encoding UTF8
 
     & dotnet run --project $packTool -c Release -- pack-loader $output $manifest $packageRoot
