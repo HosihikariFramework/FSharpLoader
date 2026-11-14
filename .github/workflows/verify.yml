@@ -24,6 +24,8 @@ jobs:
         with:
           repository: HosihikariFramework/PluginManager
           path: PluginManager
+          # 两边用同名分支：跨仓改动要在同一个分支名上一起验。
+          ref: ${{ github.head_ref || github.ref_name }}
 
       # 契约与核心一起改：并列摆放才能编到新契约。
       - name: 契约
@@ -31,6 +33,8 @@ jobs:
         with:
           repository: HosihikariFramework/PluginAbstractions
           path: Plugin.Abstractions
+          # 两边用同名分支：跨仓改动要在同一个分支名上一起验。
+          ref: ${{ github.head_ref || github.ref_name }}
 
       # 本机库的 RID 优先解析需要 fork；核心按 ../.. 找它。
       - name: McMaster fork
@@ -38,6 +42,8 @@ jobs:
         with:
           repository: HosihikariFramework/DotNetCorePlugins
           path: DotNetCorePlugins
+          # 两边用同名分支：跨仓改动要在同一个分支名上一起验。
+          ref: ${{ github.head_ref || github.ref_name }}
 
       - uses: actions/setup-dotnet@v6
         with:

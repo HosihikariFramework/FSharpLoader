@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Runtime.Loader;
 using Hosihikari;
 using Hosihikari.PluginLoader.FSharp;
@@ -179,17 +179,17 @@ host.Unload("Hello");
 // 多文件 #load：每一份源码都参与缓存键。
 var multi = Path.Combine(pluginsRoot, "Multi");
 Directory.CreateDirectory(multi);
-File.WriteAllText(Path.Combine(multi, "manifest.json"), """
+File.WriteAllText(Path.Combine(multi, "hosihikari.json"), """
     {
       "name": "Multi",
       "entry": "main.fsx",
-      "type": "hosihikari",
+      "schemaVersion": 1, "kind": "plugin", "apiVersion": 3,
       "version": "1.0.0",
       "dependencies": [
         { "name": "hosihikari" },
         { "name": "hosihikari-fsharp" }
       ],
-      "extraInfo": { "api_version": "3", "manifest_version": "1", "loader": "fsharp" }
+      "loader": "fsharp"
     }
     """);
 File.WriteAllText(Path.Combine(multi, "main.fsx"), """
@@ -245,17 +245,17 @@ checks.Add(("多文件 #load 的依赖改动后换目录",
 // 注释前缀的合法 #load 仍然是指令：注释不能把它从缓存键里抹掉。
 var comment = Path.Combine(pluginsRoot, "Comment");
 Directory.CreateDirectory(comment);
-File.WriteAllText(Path.Combine(comment, "manifest.json"), """
+File.WriteAllText(Path.Combine(comment, "hosihikari.json"), """
     {
       "name": "Comment",
       "entry": "main.fsx",
-      "type": "hosihikari",
+      "schemaVersion": 1, "kind": "plugin", "apiVersion": 3,
       "version": "1.0.0",
       "dependencies": [
         { "name": "hosihikari" },
         { "name": "hosihikari-fsharp" }
       ],
-      "extraInfo": { "api_version": "3", "manifest_version": "1", "loader": "fsharp" }
+      "loader": "fsharp"
     }
     """);
 File.WriteAllText(Path.Combine(comment, "main.fsx"), "(* entry *) #load \"plugin.fsx\"\n");
@@ -283,17 +283,17 @@ checks.Add(("注释前缀的 #load 依赖改动后重编",
 // 多行字符串里的 #load 只是文本；真正的指令仍然要进缓存键。
 var stringy = Path.Combine(pluginsRoot, "Stringy");
 Directory.CreateDirectory(stringy);
-File.WriteAllText(Path.Combine(stringy, "manifest.json"), """
+File.WriteAllText(Path.Combine(stringy, "hosihikari.json"), """
     {
       "name": "Stringy",
       "entry": "main.fsx",
-      "type": "hosihikari",
+      "schemaVersion": 1, "kind": "plugin", "apiVersion": 3,
       "version": "1.0.0",
       "dependencies": [
         { "name": "hosihikari" },
         { "name": "hosihikari-fsharp" }
       ],
-      "extraInfo": { "api_version": "3", "manifest_version": "1", "loader": "fsharp" }
+      "loader": "fsharp"
     }
     """);
 File.WriteAllText(Path.Combine(stringy, "main.fsx"), """"
@@ -326,17 +326,17 @@ checks.Add(("字符串之后的真 #load 仍跟踪依赖",
 // `(*)` 是乘法运算符：不能把后面的 #load 吞进“未闭合注释”。
 var operatorDir = Path.Combine(pluginsRoot, "Operator");
 Directory.CreateDirectory(operatorDir);
-File.WriteAllText(Path.Combine(operatorDir, "manifest.json"), """
+File.WriteAllText(Path.Combine(operatorDir, "hosihikari.json"), """
     {
       "name": "Operator",
       "entry": "main.fsx",
-      "type": "hosihikari",
+      "schemaVersion": 1, "kind": "plugin", "apiVersion": 3,
       "version": "1.0.0",
       "dependencies": [
         { "name": "hosihikari" },
         { "name": "hosihikari-fsharp" }
       ],
-      "extraInfo": { "api_version": "3", "manifest_version": "1", "loader": "fsharp" }
+      "loader": "fsharp"
     }
     """);
 File.WriteAllText(Path.Combine(operatorDir, "main.fsx"), """
@@ -368,17 +368,17 @@ checks.Add(("(*) 之后的 #load 依赖改动后重编",
 // 注释里的字符串也保护 (*；不能把它当成嵌套注释而吞掉后面的 #load。
 var commentString = Path.Combine(pluginsRoot, "CommentString");
 Directory.CreateDirectory(commentString);
-File.WriteAllText(Path.Combine(commentString, "manifest.json"), """
+File.WriteAllText(Path.Combine(commentString, "hosihikari.json"), """
     {
       "name": "CommentString",
       "entry": "main.fsx",
-      "type": "hosihikari",
+      "schemaVersion": 1, "kind": "plugin", "apiVersion": 3,
       "version": "1.0.0",
       "dependencies": [
         { "name": "hosihikari" },
         { "name": "hosihikari-fsharp" }
       ],
-      "extraInfo": { "api_version": "3", "manifest_version": "1", "loader": "fsharp" }
+      "loader": "fsharp"
     }
     """);
 File.WriteAllText(Path.Combine(commentString, "main.fsx"), """
@@ -411,17 +411,17 @@ checks.Add(("注释字符串之后的 #load 依赖改动后重编",
 // 引号标识符里的 (* 也只是标识符文本，不是注释。
 var quoted = Path.Combine(pluginsRoot, "Quoted");
 Directory.CreateDirectory(quoted);
-File.WriteAllText(Path.Combine(quoted, "manifest.json"), """
+File.WriteAllText(Path.Combine(quoted, "hosihikari.json"), """
     {
       "name": "Quoted",
       "entry": "main.fsx",
-      "type": "hosihikari",
+      "schemaVersion": 1, "kind": "plugin", "apiVersion": 3,
       "version": "1.0.0",
       "dependencies": [
         { "name": "hosihikari" },
         { "name": "hosihikari-fsharp" }
       ],
-      "extraInfo": { "api_version": "3", "manifest_version": "1", "loader": "fsharp" }
+      "loader": "fsharp"
     }
     """);
 File.WriteAllText(Path.Combine(quoted, "main.fsx"), """
@@ -452,17 +452,17 @@ checks.Add(("引号标识符之后的 #load 依赖改动后重编",
 // 字符字面量 '"' 里的引号不是字符串开头，后面的块注释与 #load 都不能被吞掉。
 var charLiteral = Path.Combine(pluginsRoot, "CharLiteral");
 Directory.CreateDirectory(charLiteral);
-File.WriteAllText(Path.Combine(charLiteral, "manifest.json"), """
+File.WriteAllText(Path.Combine(charLiteral, "hosihikari.json"), """
     {
       "name": "CharLiteral",
       "entry": "main.fsx",
-      "type": "hosihikari",
+      "schemaVersion": 1, "kind": "plugin", "apiVersion": 3,
       "version": "1.0.0",
       "dependencies": [
         { "name": "hosihikari" },
         { "name": "hosihikari-fsharp" }
       ],
-      "extraInfo": { "api_version": "3", "manifest_version": "1", "loader": "fsharp" }
+      "loader": "fsharp"
     }
     """);
 File.WriteAllText(Path.Combine(charLiteral, "main.fsx"), """
@@ -495,17 +495,17 @@ checks.Add(("字符字面量之后的 #load 依赖改动后重编",
 // 混合词法构造：字符字面量、引号标识符、嵌套注释、注释里的 verbatim/三引号字符串、空注释。
 var lexical = Path.Combine(pluginsRoot, "Lexical");
 Directory.CreateDirectory(lexical);
-File.WriteAllText(Path.Combine(lexical, "manifest.json"), """
+File.WriteAllText(Path.Combine(lexical, "hosihikari.json"), """
     {
       "name": "Lexical",
       "entry": "main.fsx",
-      "type": "hosihikari",
+      "schemaVersion": 1, "kind": "plugin", "apiVersion": 3,
       "version": "1.0.0",
       "dependencies": [
         { "name": "hosihikari" },
         { "name": "hosihikari-fsharp" }
       ],
-      "extraInfo": { "api_version": "3", "manifest_version": "1", "loader": "fsharp" }
+      "loader": "fsharp"
     }
     """);
 File.WriteAllText(Path.Combine(lexical, "main.fsx"), """"
@@ -543,17 +543,17 @@ checks.Add(("混合词法构造后的 #load 依赖改动后重编",
 // 隔离宿主：契约在核心 ALC、不在 TPA；编译器仍要从 FrameworkContext 拿到它。
 var tpaMiss = Path.Combine(pluginsRoot, "TpaMiss");
 Directory.CreateDirectory(tpaMiss);
-File.WriteAllText(Path.Combine(tpaMiss, "manifest.json"), """
+File.WriteAllText(Path.Combine(tpaMiss, "hosihikari.json"), """
     {
       "name": "TpaMiss",
       "entry": "main.fsx",
-      "type": "hosihikari",
+      "schemaVersion": 1, "kind": "plugin", "apiVersion": 3,
       "version": "1.0.0",
       "dependencies": [
         { "name": "hosihikari" },
         { "name": "hosihikari-fsharp" }
       ],
-      "extraInfo": { "api_version": "3", "manifest_version": "1", "loader": "fsharp" }
+      "loader": "fsharp"
     }
     """);
 File.WriteAllText(Path.Combine(tpaMiss, "main.fsx"), PluginSource("TpaPlugin", "tpa.txt", "ok"));
@@ -622,17 +622,17 @@ host.Unload("Hello");
 // 构造函数抛出时，加载器必须回收 ALC 并交回 null；否则每次重试都泄漏一个 ALC。
 var broken = Path.Combine(pluginsRoot, "Broken");
 Directory.CreateDirectory(broken);
-File.WriteAllText(Path.Combine(broken, "manifest.json"), """
+File.WriteAllText(Path.Combine(broken, "hosihikari.json"), """
     {
       "name": "Broken",
       "entry": "main.fsx",
-      "type": "hosihikari",
+      "schemaVersion": 1, "kind": "plugin", "apiVersion": 3,
       "version": "1.0.0",
       "dependencies": [
         { "name": "hosihikari" },
         { "name": "hosihikari-fsharp" }
       ],
-      "extraInfo": { "api_version": "3", "manifest_version": "1", "loader": "fsharp" }
+      "loader": "fsharp"
     }
     """);
 File.WriteAllText(Path.Combine(broken, "main.fsx"), """
@@ -668,17 +668,17 @@ Directory.CreateDirectory(Path.Combine(nested, "src"));
 File.Copy(
     Path.Combine(RepoRoot(), "test", "PrivateDependency", "bin", ConfigurationName(), "net10.0", "Hosihikari.FSharp.PrivateDependency.dll"),
     Path.Combine(nested, "Hosihikari.FSharp.PrivateDependency.dll"));
-File.WriteAllText(Path.Combine(nested, "manifest.json"), """
+File.WriteAllText(Path.Combine(nested, "hosihikari.json"), """
     {
       "name": "Nested",
       "entry": "src/main.fsx",
-      "type": "hosihikari",
+      "schemaVersion": 1, "kind": "plugin", "apiVersion": 3,
       "version": "1.0.0",
       "dependencies": [
         { "name": "hosihikari" },
         { "name": "hosihikari-fsharp" }
       ],
-      "extraInfo": { "api_version": "3", "manifest_version": "1", "loader": "fsharp" }
+      "loader": "fsharp"
     }
     """);
 File.WriteAllText(Path.Combine(nested, "src", "main.fsx"), """
@@ -773,14 +773,14 @@ void StageLoaderPackage()
     var package = Path.Combine(pluginsRoot, "hosihikari-fsharp");
     Directory.CreateDirectory(package);
 
-    File.WriteAllText(Path.Combine(package, "manifest.json"), """
+    File.WriteAllText(Path.Combine(package, "hosihikari.json"), """
         {
           "name": "hosihikari-fsharp",
           "entry": "Hosihikari.PluginLoader.FSharp.dll",
-          "type": "hosihikari",
+          "schemaVersion": 1, "kind": "plugin", "apiVersion": 3,
           "version": "0.1.0",
           "dependencies": [ { "name": "hosihikari" } ],
-          "extraInfo": { "api_version": "3", "manifest_version": "1", "loader": "assembly" }
+          "loader": "assembly"
         }
         """);
 
@@ -808,17 +808,17 @@ bool StageScriptPackage()
     var package = Path.Combine(pluginsRoot, "Hello");
     Directory.CreateDirectory(package);
 
-    File.WriteAllText(Path.Combine(package, "manifest.json"), """
+    File.WriteAllText(Path.Combine(package, "hosihikari.json"), """
         {
           "name": "Hello",
           "entry": "main.fsx",
-          "type": "hosihikari",
+          "schemaVersion": 1, "kind": "plugin", "apiVersion": 3,
           "version": "1.0.0",
           "dependencies": [
             { "name": "hosihikari" },
             { "name": "hosihikari-fsharp" }
           ],
-          "extraInfo": { "api_version": "3", "manifest_version": "1", "loader": "fsharp" }
+          "loader": "fsharp"
         }
         """);
 
