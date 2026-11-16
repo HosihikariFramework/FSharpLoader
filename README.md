@@ -23,17 +23,19 @@ it into `plugins/`, rename the plugin, and restart.
 
 ```
 plugins/Hello/
-  manifest.json
+  hosihikari.json
     {
+      "schemaVersion": 1,
       "name": "Hello",
-      "entry": "main.fsx",
-      "type": "hosihikari",
       "version": "1.0.0",
+      "entry": "main.fsx",
+      "loader": "fsharp",
+      "kind": "plugin",
+      "apiVersion": 3,
       "dependencies": [
         { "name": "hosihikari" },
         { "name": "hosihikari-fsharp" }
-      ],
-      "extraInfo": { "api_version": "3", "manifest_version": "1", "loader": "fsharp" }
+      ]
     }
   main.fsx
   Hello.conf          ← the author's defaults, shipped with the package
@@ -132,8 +134,9 @@ declare the dependency, and the dependency graph orders the loader first:
 pwsh ./pack.ps1 -Version 1.0.0 -OutputRoot artifacts
 ```
 
-It assembles the loader DLL, its private dependencies and the manifest into
-`plugins/hosihikari-fsharp/`; the shared layer is not copied. Pushing a `v*` tag attaches the zip
+It assembles the loader DLL, its private dependencies and `hosihikari.json` into
+`plugins/hosihikari-fsharp/`; the packer generates the LeviLamina `manifest.json` envelope from it
+(ADR-0058), and the shared layer is not copied. Pushing a `v*` tag attaches the zip
 to the GitHub release (ADR-0044).
 
 The script invokes the core packager (`PluginManager/tools/Pack`), which owns the

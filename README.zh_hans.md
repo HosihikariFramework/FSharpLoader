@@ -20,17 +20,19 @@
 
 ```
 plugins/Hello/
-  manifest.json
+  hosihikari.json
     {
+      "schemaVersion": 1,
       "name": "Hello",
-      "entry": "main.fsx",
-      "type": "hosihikari",
       "version": "1.0.0",
+      "entry": "main.fsx",
+      "loader": "fsharp",
+      "kind": "plugin",
+      "apiVersion": 3,
       "dependencies": [
         { "name": "hosihikari" },
         { "name": "hosihikari-fsharp" }
-      ],
-      "extraInfo": { "api_version": "3", "manifest_version": "1", "loader": "fsharp" }
+      ]
     }
   main.fsx
   Hello.conf          ← 作者给的默认值，随包更新
@@ -114,7 +116,7 @@ dotnet run --project host/Hosihikari.PluginLoader.FSharp.Host.csproj -c Release
 pwsh ./pack.ps1 -Version 1.0.0 -OutputRoot artifacts
 ```
 
-它把加载器 DLL、私有依赖与清单装进 `plugins/hosihikari-fsharp/`，共享层不随包走；打 `v*` 标签时 CI 把 zip 附到 release（ADR-0044）。
+它把加载器 DLL、私有依赖与 `hosihikari.json` 装进 `plugins/hosihikari-fsharp/`，信封 `manifest.json` 由打包器生成（ADR-0058），共享层不随包走；打 `v*` 标签时 CI 把 zip 附到 release（ADR-0044）。
 
 打包脚本调用插件管理器打包器（`PluginManager/tools/Pack`），共享层清单由插件管理器统一给出；需要并列检出插件管理器仓，或设置 `HOSIHIKARI_PLUGINMANAGER`。
 
