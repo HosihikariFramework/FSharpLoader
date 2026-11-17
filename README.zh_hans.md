@@ -20,17 +20,19 @@
 
 ```
 plugins/Hello/
-  manifest.json
+  hosihikari.json
     {
+      "schemaVersion": 1,
       "name": "Hello",
-      "entry": "main.fsx",
-      "type": "hosihikari",
       "version": "1.0.0",
+      "entry": "main.fsx",
+      "loader": "fsharp",
+      "kind": "plugin",
+      "apiVersion": 3,
       "dependencies": [
         { "name": "hosihikari" },
         { "name": "hosihikari-fsharp" }
-      ],
-      "extraInfo": { "api_version": "2", "manifest_version": "1", "loader": "fsharp" }
+      ]
     }
   main.fsx
   Hello.conf          ← 作者给的默认值，随包更新
@@ -42,20 +44,24 @@ plugins/Hello/
 ```fsharp
 open Hosihikari
 open System.IO
+open System.Threading
+open System.Threading.Tasks
 
 type HelloPlugin() =
     let mutable dataDirectory = ""
 
     interface IPlugin with
-        member this.OnLoad(context: IPluginContext) =
+        member this.OnLoad(context: IPluginContext, token: CancellationToken) =
             dataDirectory <- context.DataDirectory
             let greeting = context.Configuration.["greeting"]
             File.WriteAllText(Path.Combine(dataDirectory, "body.txt"), "body:" + greeting)
-        member this.OnEnable() =
+            ValueTask.CompletedTask
+        member this.OnEnable(token: CancellationToken) =
             File.WriteAllText(Path.Combine(dataDirectory, "enabled.txt"), "enabled")
-            PluginHookResult.Allow()
-        member this.OnDisable() = PluginHookResult.Allow()
-        member this.OnUnload() = ()
+            ValueTask.FromResult(PluginHookResult.Allow())
+        member this.OnDisable(token: CancellationToken) =
+            ValueTask.FromResult(PluginHookResult.Allow())
+        member this.OnUnload(token: CancellationToken) = ValueTask.CompletedTask
 ```
 
 编出来的是一个引用了契约的真程序集，所以 F# 插件拿得到 C# 插件的一切 —— 包括那些**按类型**做键的通道
@@ -114,7 +120,7 @@ dotnet run --project host/Hosihikari.PluginLoader.FSharp.Host.csproj -c Release
 pwsh ./pack.ps1 -Version 1.0.0 -OutputRoot artifacts
 ```
 
-它把加载器 DLL、私有依赖与清单装进 `plugins/hosihikari-fsharp/`，共享层不随包走；打 `v*` 标签时 CI 把 zip 附到 release（ADR-0044）。
+它把加载器 DLL、私有依赖与 `hosihikari.json` 装进 `plugins/hosihikari-fsharp/`，信封 `manifest.json` 由打包器生成（ADR-0058），共享层不随包走；打 `v*` 标签时 CI 把 zip 附到 release（ADR-0044）。
 
 打包脚本调用插件管理器打包器（`PluginManager/tools/Pack`），共享层清单由插件管理器统一给出；需要并列检出插件管理器仓，或设置 `HOSIHIKARI_PLUGINMANAGER`。
 

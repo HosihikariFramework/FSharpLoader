@@ -872,7 +872,7 @@ public sealed class FSharpPluginLoader : IPluginLoader
     // 共享层按契约的清单判（ADR-0019 / 0026），不看宿主恰好加载过什么：
     // 否则插件自带的同名库会被静默顶掉，还不进缓存键。
     private static bool IsFrameworkAssembly(string name) =>
-        PluginContractInfo.SharedAssemblyFileNames
+        PluginContractInfo.BaseSharedAssemblyFileNames
             .Any(file => string.Equals(Path.GetFileNameWithoutExtension(file), name, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>产物与 PDB 都在、且两行校验和都对得上才算能用。</summary>

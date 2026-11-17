@@ -120,6 +120,8 @@ jobs:
             exit 0
           fi
 
+          # 索引里的依赖直接取包里的 sei.json：归档元数据与索引条目是同一次生成的，抄死值迟早对不上。
+          deps=$(unzip -p "$file" sei.json | jq -c '.dependencies // []')
           body=$(cat <<EOF
           ### Sei name
 
@@ -130,9 +132,7 @@ jobs:
           \`\`\`json
           {
             "version": "$VERSION",
-            "dependencies": [
-              { "name": "hosihikari", "version": "[1.3.0,2.0.0)" }
-            ],
+            "dependencies": $deps,
             "prerequisites": [],
             "optionalPeers": [],
             "conflicts": [],

@@ -1,4 +1,4 @@
-using Hosihikari;
+﻿using Hosihikari;
 
 [assembly: EntryPoint<Hosihikari.PluginLoader.FSharp.LoaderBootstrap>]
 
@@ -13,20 +13,30 @@ namespace Hosihikari.PluginLoader.FSharp;
 /// </summary>
 public sealed class LoaderBootstrap : IPlugin
 {
-    public void OnLoad(IPluginContext context)
+    public ValueTask OnLoad(IPluginContext context, CancellationToken cancellationToken)
     {
+        // 加载器包按清单的 kind 拿到 ILoaderContext（ADR-0059）；拿不到说明清单漏写了 kind。
+        if (context is not ILoaderContext loaderContext)
+        {
+            throw new InvalidOperationException(
+                "The context is not an ILoaderContext; the package manifest must declare "
+                + "\"kind\": \"loader\"");
+        }
+
         // 重复登记说明另一个包已经接管 fsharp；本包留在场上只会空转。
-        if (!context.RegisterLoader(new FSharpPluginLoader()))
+        if (!loaderContext.RegisterLoader(new FSharpPluginLoader()))
         {
             throw new InvalidOperationException("The 'fsharp' loader kind is already registered");
         }
+
+        return ValueTask.CompletedTask;
     }
 
-    public PluginHookResult OnEnable() => PluginHookResult.Allow();
+    public ValueTask<PluginHookResult> OnEnable(CancellationToken cancellationToken) =>
+        ValueTask.FromResult(PluginHookResult.Allow());
 
-    public PluginHookResult OnDisable() => PluginHookResult.Allow();
+    public ValueTask<PluginHookResult> OnDisable(CancellationToken cancellationToken) =>
+        ValueTask.FromResult(PluginHookResult.Allow());
 
-    public void OnUnload()
-    {
-    }
+    public ValueTask OnUnload(CancellationToken cancellationToken) => ValueTask.CompletedTask;
 }

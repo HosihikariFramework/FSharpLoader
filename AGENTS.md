@@ -22,9 +22,9 @@ checkouts. `pack.ps1` calls the core packer and needs the same `PluginManager` c
 
 ## Invariants
 
-- The loader package is named `hosihikari-fsharp`; it routes on `extraInfo.loader: assembly` with
-  entry `Hosihikari.PluginLoader.FSharp.dll`. Source packages conventionally use
-  `extraInfo.loader: fsharp` and entry `main.fsx`; the loader follows the manifest's `EntryPath`,
+- The loader package is named `hosihikari-fsharp`, declares `kind: loader`, and routes on
+  `loader: assembly` with entry `Hosihikari.PluginLoader.FSharp.dll`. Source packages conventionally
+  use `loader: fsharp` and entry `main.fsx`; the loader follows the manifest's `EntryPath`,
   so nested or renamed script paths remain valid.
 - Compile-time references follow the runtime order: framework shared layer, package-local DLLs,
   the loader directory (for dependencies such as `FSharp.Core`), then trusted platform assemblies.
