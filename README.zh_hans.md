@@ -44,20 +44,24 @@ plugins/Hello/
 ```fsharp
 open Hosihikari
 open System.IO
+open System.Threading
+open System.Threading.Tasks
 
 type HelloPlugin() =
     let mutable dataDirectory = ""
 
     interface IPlugin with
-        member this.OnLoad(context: IPluginContext) =
+        member this.OnLoad(context: IPluginContext, token: CancellationToken) =
             dataDirectory <- context.DataDirectory
             let greeting = context.Configuration.["greeting"]
             File.WriteAllText(Path.Combine(dataDirectory, "body.txt"), "body:" + greeting)
-        member this.OnEnable() =
+            ValueTask.CompletedTask
+        member this.OnEnable(token: CancellationToken) =
             File.WriteAllText(Path.Combine(dataDirectory, "enabled.txt"), "enabled")
-            PluginHookResult.Allow()
-        member this.OnDisable() = PluginHookResult.Allow()
-        member this.OnUnload() = ()
+            ValueTask.FromResult(PluginHookResult.Allow())
+        member this.OnDisable(token: CancellationToken) =
+            ValueTask.FromResult(PluginHookResult.Allow())
+        member this.OnUnload(token: CancellationToken) = ValueTask.CompletedTask
 ```
 
 编出来的是一个引用了契约的真程序集，所以 F# 插件拿得到 C# 插件的一切 —— 包括那些**按类型**做键的通道
