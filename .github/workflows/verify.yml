@@ -24,9 +24,9 @@ jobs:
         with:
           repository: HosihikariFramework/PluginManager
           path: PluginManager
-          # 跨仓并列检出：v2 期钉同名分支，其余跟 PR 目标分支（ADR-0059）；合并顺序固定为契约 → 核心 → 加载器，
+          # 跨仓并列检出跟 PR 目标分支；合并顺序固定为契约 → 核心 → 加载器，
           # 否则同批改动里的另一方还停在默认分支上。
-          ref: ${{ github.head_ref == 'v2' && 'v2' || github.base_ref || github.ref_name }}
+          ref: ${{ github.base_ref || github.ref_name }}
 
       # 契约与核心一起改：并列摆放才能编到新契约。
       - name: 契约
@@ -34,9 +34,9 @@ jobs:
         with:
           repository: HosihikariFramework/PluginAbstractions
           path: Plugin.Abstractions
-          # 跨仓并列检出：v2 期钉同名分支，其余跟 PR 目标分支（ADR-0059）；合并顺序固定为契约 → 核心 → 加载器，
+          # 跨仓并列检出跟 PR 目标分支；合并顺序固定为契约 → 核心 → 加载器，
           # 否则同批改动里的另一方还停在默认分支上。
-          ref: ${{ github.head_ref == 'v2' && 'v2' || github.base_ref || github.ref_name }}
+          ref: ${{ github.base_ref || github.ref_name }}
 
       # 本机库的 RID 优先解析需要 fork；核心按 ../.. 找它。
       - name: McMaster fork
@@ -44,7 +44,7 @@ jobs:
         with:
           repository: HosihikariFramework/DotNetCorePlugins
           path: DotNetCorePlugins
-          ref: ${{ github.head_ref == 'v2' && 'v2' || github.base_ref || github.ref_name }}
+          ref: ${{ github.base_ref || github.ref_name }}
 
       - uses: actions/setup-dotnet@v6
         with:
