@@ -78,7 +78,7 @@ $sei = Join-Path $root 'sei.json'
     schemaVersion  = 3
     name           = $name
     version        = $Version
-    dependencies   = @(@{ name = 'hosihikari'; version = '[3.0.0,4.0.0)' })
+    dependencies   = @(@{ name = 'hosihikari'; version = '[2.0.0,3.0.0)' })
     prerequisites  = @()
     optionalPeers  = @()
     conflicts      = @()
