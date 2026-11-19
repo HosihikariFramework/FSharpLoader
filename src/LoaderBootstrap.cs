@@ -5,17 +5,17 @@
 namespace Hosihikari.PluginLoader.FSharp;
 
 /// <summary>
-/// 加载器本身就是一个插件包（ADR-0002）：它在装载时把自己登记给框架，此后要路由给
+/// 加载器本身就是一个插件包（FX-0002）：它在装载时把自己登记给框架，此后要路由给
 /// F# 的包才会被它接管。
 ///
-/// 顺序靠依赖声明保证 —— 需要它的插件在清单里声明依赖本包（ADR-0006），依赖图会先排它。
+/// 顺序靠依赖声明保证 —— 需要它的插件在清单里声明依赖本包（FX-0006），依赖图会先排它。
 /// 登记之后不能撤销，所以本包装上就别指望能卸掉：它造出来的实例的类型住在它的装载上下文里。
 /// </summary>
 public sealed class LoaderBootstrap : IPlugin
 {
     public ValueTask OnLoad(IPluginContext context, CancellationToken cancellationToken)
     {
-        // 加载器包按清单的 kind 拿到 ILoaderContext（ADR-0059）；拿不到说明清单漏写了 kind。
+        // 加载器包按清单的 kind 拿到 ILoaderContext（FX-0059）；拿不到说明清单漏写了 kind。
         if (context is not ILoaderContext loaderContext)
         {
             throw new InvalidOperationException(
