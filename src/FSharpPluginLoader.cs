@@ -13,15 +13,15 @@ using Microsoft.FSharp.Control;
 namespace Hosihikari.PluginLoader.FSharp;
 
 /// <summary>
-/// F# 型插件的加载器（ADR-0002 的扩展点）。
+/// F# 型插件的加载器（FX-0002 的扩展点）。
 ///
 /// F# 直接跑在 CLR 上。这个加载器做的事是**装载时编译**：
 /// 把清单 <c>entry</c> 指向的 <c>.fsx</c> 编成一个程序集，再交给一个 collectible ALC。
 ///
-/// 编译产物按**内容寻址**缓存（ADR-0029）：目录名是脚本内容、#load/#r 依赖、编译器与运行时版本的哈希，
+/// 编译产物按**内容寻址**缓存（FX-0029）：目录名是脚本内容、#load/#r 依赖、编译器与运行时版本的哈希，
 /// 所以任何一份输入一改就换目录，旧代码不可能被跑到；产物旁另存一份校验和，加载前对一遍。
 ///
-/// 入口靠约定：编出来的程序集里那个实现 <see cref="IPlugin"/>、有无参构造的类型（ADR-0008）。
+/// 入口靠约定：编出来的程序集里那个实现 <see cref="IPlugin"/>、有无参构造的类型（FX-0008）。
 /// </summary>
 public sealed class FSharpPluginLoader : IPluginLoader
 {
@@ -847,7 +847,7 @@ public sealed class FSharpPluginLoader : IPluginLoader
         return true;
     }
 
-    /// <summary>插件目录里自带的依赖；框架已经有的那些不算（共享层，ADR-0004）。</summary>
+    /// <summary>插件目录里自带的依赖；框架已经有的那些不算（共享层，FX-0004）。</summary>
     private static IReadOnlyList<string> LocalAssemblies(string packageDirectory) =>
         Directory.EnumerateFiles(packageDirectory, "*.dll")
             .Where(IsManagedAssembly)
@@ -855,7 +855,7 @@ public sealed class FSharpPluginLoader : IPluginLoader
             .OrderBy(path => path, StringComparer.Ordinal)
             .ToArray();
 
-    /// <summary>包根可以有本机库（ADR-0034）；它们不能当编译器的元数据引用。</summary>
+    /// <summary>包根可以有本机库（FX-0034）；它们不能当编译器的元数据引用。</summary>
     private static bool IsManagedAssembly(string path)
     {
         try
@@ -869,7 +869,7 @@ public sealed class FSharpPluginLoader : IPluginLoader
         }
     }
 
-    // 共享层按契约的清单判（ADR-0019 / 0026），不看宿主恰好加载过什么：
+    // 共享层按契约的清单判（FX-0019 / 0026），不看宿主恰好加载过什么：
     // 否则插件自带的同名库会被静默顶掉，还不进缓存键。
     private static bool IsFrameworkAssembly(string name) =>
         PluginContractInfo.BaseSharedAssemblyFileNames
@@ -951,7 +951,7 @@ public sealed class FSharpPluginLoader : IPluginLoader
         }
         catch (Exception ex)
         {
-            // 编译期出错只让这一个插件倒下（ADR-0009）。
+            // 编译期出错只让这一个插件倒下（FX-0009）。
             context.Logger.LogError(ex, "{Message}", LoaderText.Get("CompileFailed", scriptPath));
             return false;
         }
@@ -1219,7 +1219,7 @@ public sealed class FSharpPluginLoader : IPluginLoader
 
         protected override IntPtr LoadUnmanagedDll(string unmanagedDllName)
         {
-            // 本机库随进程存活；这里只负责按 RID → 包根的顺序找到它（ADR-0034）。
+            // 本机库随进程存活；这里只负责按 RID → 包根的顺序找到它（FX-0034）。
             var path = FindNativeLibrary(_packageDirectory, unmanagedDllName);
             return path is null ? IntPtr.Zero : LoadUnmanagedDllFromPath(path);
         }
@@ -1288,7 +1288,7 @@ internal sealed class CompiledPluginHandle(IPlugin plugin, AssemblyLoadContext l
 
     public override bool IsUnloaded => _weakContext is { IsAlive: false };
 
-    /// <summary>编出来的程序集就是搬运单元（ADR-0010）：放下它，回收照常验证（ADR-0023）。</summary>
+    /// <summary>编出来的程序集就是搬运单元（FX-0010）：放下它，回收照常验证（FX-0023）。</summary>
     public override void Unload()
     {
         if (_loadContext is null)

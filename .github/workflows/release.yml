@@ -22,14 +22,14 @@ jobs:
         with:
           path: provider
 
-      # Loader 编译到契约；共享层不进 Loader 包（ADR-0036）。
+      # Loader 编译到契约；共享层不进 Loader 包（FX-0036）。
       - name: 契约
         uses: actions/checkout@v7
         with:
           repository: HosihikariFramework/PluginAbstractions
           path: Plugin.Abstractions
 
-      # 打包器在核心仓；共享层清单由它统一给出（ADR-0036）。
+      # 打包器在核心仓；共享层清单由它统一给出（FX-0036）。
       - name: 核心打包器
         uses: actions/checkout@v7
         with:

@@ -9,7 +9,7 @@
 这是进程内加载器：在插件开始运行前把源码编译为 IL，加载器把 IL 装进 collectible ALC。
 
 **进程内只留 .NET。** 框架在进程内保留程序集型、C# 与 F# 三个加载器；其他语言走
-通用的进程外加载器（`Hosihikari.PluginLoader.Rpc`，ADR-0031）。
+通用的进程外加载器（`Hosihikari.PluginLoader.Rpc`，FX-0031）。
 
 ## 模板
 
@@ -84,7 +84,7 @@ TPA 里也从这里拿）、包根目录内的私有 DLL、这个加载器自己
 注释与普通字符串里的 `#` 不是指令，不再触发重编。
 
 校验和防的是**事故**（产物被换掉或写坏、编译器或运行时换了一版），不防**恶意**：插件与本框架同进程、
-且完全受信（ADR-0011），它真要伪造缓存也做得到。这条边界记在 ADR-0029 里。
+且完全受信（FX-0011），它真要伪造缓存也做得到。这条边界记在 FX-0029 里。
 
 ## 跑一遍
 
@@ -120,7 +120,7 @@ dotnet run --project host/Hosihikari.PluginLoader.FSharp.Host.csproj -c Release
 pwsh ./pack.ps1 -Version 1.0.0 -OutputRoot artifacts
 ```
 
-它把加载器 DLL、私有依赖与 `hosihikari.json` 装进 `plugins/hosihikari-fsharp/`，信封 `manifest.json` 由打包器生成（ADR-0058），共享层不随包走；打 `v*` 标签时 CI 把 zip 附到 release（ADR-0044）。
+它把加载器 DLL、私有依赖与 `hosihikari.json` 装进 `plugins/hosihikari-fsharp/`，信封 `manifest.json` 由打包器生成（FX-0058），共享层不随包走；打 `v*` 标签时 CI 把 zip 附到 release（FX-0044）。
 
 打包脚本调用插件管理器打包器（`PluginManager/tools/Pack`），共享层清单由插件管理器统一给出；需要并列检出插件管理器仓，或设置 `HOSIHIKARI_PLUGINMANAGER`。
 

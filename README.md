@@ -12,7 +12,7 @@ loader loads that IL into a collectible ALC.
 
 **In-process .NET.** The framework keeps the assembly loader, the C# loader and this F# loader
 in-process; other languages go through the generic out-of-process loader
-(`Hosihikari.PluginLoader.Rpc`, ADR-0031).
+(`Hosihikari.PluginLoader.Rpc`, FX-0031).
 
 ## Templates
 
@@ -93,8 +93,8 @@ globs or unresolved paths are recompiled on every load into a unique `-run-` dir
 comments or ordinary strings is not a directive and no longer forces recompilation.
 
 The checksum guards against accidents (a swapped or half-written artifact, a compiler or runtime
-change), not against a hostile plugin: plugins share this process and are trusted (ADR-0011), so one
-could forge the cache as well. ADR-0029 records that boundary.
+change), not against a hostile plugin: plugins share this process and are trusted (FX-0011), so one
+could forge the cache as well. FX-0029 records that boundary.
 
 ## Running it
 
@@ -140,8 +140,8 @@ pwsh ./pack.ps1 -Version 1.0.0 -OutputRoot artifacts
 
 It assembles the loader DLL, its private dependencies and `hosihikari.json` into
 `plugins/hosihikari-fsharp/`; the packer generates the LeviLamina `manifest.json` envelope from it
-(ADR-0058), and the shared layer is not copied. Pushing a `v*` tag attaches the zip
-to the GitHub release (ADR-0044).
+(FX-0058), and the shared layer is not copied. Pushing a `v*` tag attaches the zip
+to the GitHub release (FX-0044).
 
 The script invokes the core packager (`PluginManager/tools/Pack`), which owns the
 shared-layer list. Check out the core repository alongside this one, or set
