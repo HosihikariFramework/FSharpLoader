@@ -1,4 +1,4 @@
-﻿name: verify
+name: verify
 
 on:
   push:
@@ -6,6 +6,55 @@ on:
   pull_request:
 
 jobs:
+  format:
+    name: 格式
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # 仓里的配置文件与 FormatterConfig 逐字节相同，是标准；漂了就停下并打印 diff。
+      # clang-format 版本钉死：新版本认不全新选项，--Werror 会把未知项也算失败。
+      - name: C/C++
+        run: |
+          set -euo pipefail
+          mapfile -d '' -t files < <(
+            git ls-files -z -- '*.c' '*.cpp' '*.h' '*.hpp' | grep -zvE '/(build|bin|obj)/'
+          )
+          if [ ${#files[@]} -eq 0 ]; then echo "没有 C/C++ 文件"; exit 0; fi
+          python3 -m venv "$RUNNER_TEMP/cf"
+          "$RUNNER_TEMP/cf/bin/pip" install --quiet 'clang-format==23.1.4'
+          "$RUNNER_TEMP/cf/bin/clang-format" --dry-run --Werror "${files[@]}"
+
+      # .clang-format 管不到的规则由 .editorconfig 规定，这里查它 —— clang-format 不看
+      # .editorconfig。行尾不查：检出是 CRLF、索引里是 LF，先把 CR 去掉再判行尾空白。
+      - name: 空白
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(git ls-files)
+          fail=0
+          for f in "${files[@]}"; do
+            [ -s "$f" ] || continue
+            if [ -n "$(tail -c 1 "$f")" ]; then
+              echo "$f: 文件末尾缺换行"; fail=1
+            fi
+            if sed 's/\r$//' "$f" | grep -qE '[[:space:]]+$'; then
+              echo "$f: 有行尾空白"; fail=1
+            fi
+          done
+          exit "$fail"
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: "10.0.x"
+
+      # .editorconfig 里的 csharp_* 规则只有 dotnet format 会执行。只放 whitespace：
+      # style 那套会连 file_header_template 一起要求。
+      - name: C# 空白
+        run: |
+          set -euo pipefail
+          sln=$(git ls-files -- '*.slnx' '*.sln' | head -n 1)
+          if [ -z "$sln" ]; then echo "没有解决方案文件"; exit 0; fi
+          dotnet format whitespace "$sln" --verify-no-changes
   assertions:
     strategy:
       fail-fast: false
@@ -48,7 +97,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: "10.0.x"
       - name: 跑断言
         working-directory: provider
         run: dotnet run --project host/Hosihikari.PluginLoader.FSharp.Host.csproj -c Release --nologo
